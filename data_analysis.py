@@ -1,4 +1,22 @@
 #!/usr/bin/env python3
+"""
+Data Analysis Script for Robotic Arm Experiments
+
+This script loads and plots experimental data from HDF5 files or CSV files.
+
+Usage:
+    # Auto-select latest HDF5 experiment (default):
+    python data_analysis.py
+
+    # Load a specific CSV file:
+    python data_analysis.py --csv path/to/file.csv
+
+    # Examples:
+    python data_analysis.py --csv exp_040_axial_Nov12_14h48m_data_with_headers.csv
+    python data_analysis.py --csv experiments/csv/July-16/Test_1.csv
+"""
+
+import argparse
 import os
 import re
 from datetime import datetime
@@ -21,8 +39,8 @@ except ImportError:
 # ---- UNIVERSAL FONT SIZE CONFIGURATION ----
 # =================================================================================
 # -- EDIT THESE VALUES TO CONTROL ALL PLOT FONTS --
-BASE_FONT_SIZE = 16  # This is your base size
-LABEL_PADDING = 10  # Padding for axis labels
+BASE_FONT_SIZE = 18  # This is your base size
+LABEL_PADDING = 24  # Padding for axis labels
 plt.rcParams.update(
     {
         # --- Base and Tick Fonts ---
@@ -32,7 +50,7 @@ plt.rcParams.update(
         "ytick.labelsize": BASE_FONT_SIZE
         - 10,  # Font size for Y-axis tick labels (e.g., 2.5, 5.0, 7.5)
         # --- Label Fonts ---
-        "axes.labelsize": BASE_FONT_SIZE - 10,  # Controls X and Y axis labels
+        "axes.labelsize": LABEL_PADDING - 10,  # Controls X and Y axis labels
         "axes.labelpad": LABEL_PADDING,  # <-- NEW: Applies the padding
         # --- Title Fonts ---
         "axes.titlesize": BASE_FONT_SIZE
@@ -63,9 +81,8 @@ TIME_COL = "time"
 DESIRED_PRESSURE_COLS = ["pd_3", "pd_6", "pd_7", "pd_8"]
 MEASURED_PRESSURE_SEGMENT1_COLS = ["pm_3_1", "pm_3_2", "pm_3_3", "pm_3_4", "pm_7_1"]
 MEASURED_PRESSURE_SEGMENT2_COLS = ["pm_7_2", "pm_7_3", "pm_7_4", "pm_8_1", "pm_8_2"]
-MEASURED_PRESSURE_SEGMENT3_COLS = ["pm_8_4"]
-MEASURED_PRESSURE_SEGMENT4_COLS = ["pm_8_3"]
-MEASURED_PRESSURE_SEGMENT4_COLS = ["pm_8_3"]
+MEASURED_PRESSURE_SEGMENT3_COLS = ["pm_8_3"]
+MEASURED_PRESSURE_SEGMENT4_COLS = ["pm_8_4"]
 MOCAP_POS_COLS = ["mocap_3_x", "mocap_3_y", "mocap_3_z"]
 MOCAP_QUAT_COLS = ["mocap_3_qx", "mocap_3_qy", "mocap_3_qz", "mocap_3_qw"]
 
@@ -312,10 +329,10 @@ def get_experiment():
     if h5_files:
         # Use HDF5
         h5_file, exp_name = select_experiment()
-        h5_file, exp_name = (
-            "/home/g1/Developer/Thesis/experiments/2025_November.h5",
-            "exp_028_axial_Nov12_10h41m",
-        )  # --- FOR TESTING ONLY ---
+        # h5_file, exp_name = (
+        #     "/home/g1/Developer/Thesis/experiments/2025_November.h5",
+        #     "exp_057_axial_Nov12_17h41m",
+        # )  # --- FOR TESTING ONLY ---
         if h5_file and exp_name:
             return ("h5", h5_file, exp_name)
 
@@ -549,27 +566,70 @@ def create_3d_mocap_plot(fig_num, data, window_title):
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
 
+def load_csv_file(csv_path):
+    """Load a specific CSV file and return as DataFrame."""
+    print(f"\nLoading CSV file: {csv_path}")
+    try:
+        data = pd.read_csv(csv_path)
+        print(f"Data Shape: {data.shape}")
+        print(f"Columns: {list(data.columns)}")
+        return data
+    except FileNotFoundError:
+        print(f"Error: File '{csv_path}' not found.")
+        return None
+    except Exception as e:
+        print(f"Error loading CSV: {e}")
+        return None
+
+
 def main():
     """Main function to run the data analysis and plotting."""
-    result = get_experiment()
-    if not result:
-        return
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Plot experimental data from HDF5 or CSV files."
+    )
+    parser.add_argument(
+        "--csv",
+        type=str,
+        help="Path to a specific CSV file to load and plot",
+        default=None,
+    )
+    args = parser.parse_args()
 
-    # Load data based on file type
-    if result[0] == "h5":
-        _, h5_file, exp_name = result
-        print(f"\nLoading HDF5: {exp_name} from {os.path.basename(h5_file)}")
-        data = load_h5_experiment(h5_file, exp_name)
-        base_title = exp_name
-    else:
-        _, filename = result
-        print(f"\nAnalyzing CSV:\n{filename}\n")
-        try:
-            data = pd.read_csv(filename)
-        except FileNotFoundError:
-            print(f"Error: File '{filename}' not found.")
+    # Check if user specified a CSV file
+    if args.csv:
+        # Load the specified CSV file
+        csv_path = args.csv
+        # Handle relative paths
+        if not os.path.isabs(csv_path):
+            csv_path = os.path.abspath(csv_path)
+
+        data = load_csv_file(csv_path)
+        if data is None:
             return
-        base_title = os.path.basename(filename)
+        base_title = os.path.basename(csv_path)
+    else:
+        # Use the original auto-selection logic
+        result = get_experiment()
+        if not result:
+            return
+
+        # Load data based on file type
+        if result[0] == "h5":
+            _, h5_file, exp_name = result
+            exp_name = "exp_098_axial_Nov24_14h24m"
+            print(f"\nLoading HDF5: {exp_name} from {os.path.basename(h5_file)}")
+            data = load_h5_experiment(h5_file, exp_name)
+            base_title = exp_name
+        else:
+            _, filename = result
+            print(f"\nAnalyzing CSV:\n{filename}\n")
+            try:
+                data = pd.read_csv(filename)
+            except FileNotFoundError:
+                print(f"Error: File '{filename}' not found.")
+                return
+            base_title = os.path.basename(filename)
 
     if data.empty:
         print("Error: Data file is empty.")
@@ -628,6 +688,7 @@ def main():
 
     # create_3d_mocap_plot(4, plot_data, f"Mocap 3D Trajectory (Body 3): {base_title}")
     create_3d_mocap_plot(4, plot_data, f"Robot Trajectory")
+    # create_2d_mocap_plot(5, plot_data, f"Robot Trajectory")
 
     plt.show()
 
