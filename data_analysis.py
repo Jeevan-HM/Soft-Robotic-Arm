@@ -617,7 +617,7 @@ def main():
         # Load data based on file type
         if result[0] == "h5":
             _, h5_file, exp_name = result
-            exp_name = "exp_098_axial_Nov24_14h24m"
+            # exp_name = "exp_098_axial_Nov24_14h24m"
             print(f"\nLoading HDF5: {exp_name} from {os.path.basename(h5_file)}")
             data = load_h5_experiment(h5_file, exp_name)
             base_title = exp_name

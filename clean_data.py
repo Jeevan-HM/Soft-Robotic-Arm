@@ -4,7 +4,7 @@ import os
 # ---- CONFIGURATION ----
 
 OUTPUT_FOLDER_NAME = "cleaned_data"
-INPUT_FODLER_NAME = "/home/g1/Developer/Thesis/files_for_submission"
+INPUT_FODLER_NAME = "files_for_submission"
 # This dictionary defines all the renaming operations.
 # 'old_name': 'new_name'
 COLUMN_RENAME_MAP = {
@@ -24,7 +24,7 @@ COLUMN_RENAME_MAP = {
     "pm_8_2": "Measured_pressure_Segment_2_pouch_5",
     "pm_8_4": "Measured_pressure_Segment_3",
     "pm_8_3": "Measured_pressure_Segment_4",
-    # Rename mocap3 columns to the new generic rigid body names
+    # rename mocap3 columns to the new generic rigid body names
     "mocap_3_x": "mocap_rigid_body_x",
     "mocap_3_y": "mocap_rigid_body_y",
     "mocap_3_z": "mocap_rigid_body_z",

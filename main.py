@@ -18,970 +18,794 @@ import struct
 import sys
 import threading
 import time
+import concurrent.futures
+from typing import List, Optional
+
+import h5py
+import numpy as np
+
+# Optional imports
+try:
+    import matplotlib.pyplot as plt
+
+    HAS_MPL = True
+except Exception:
+    HAS_MPL = False
+
+try:
+    import zmq
+
+    HAS_ZMQ = True
+except Exception:
+    HAS_ZMQ = False
 
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()  # Load environment variables from .env file
-except ImportError:
-    print("Warning: python-dotenv not installed, proceeding without it.")
-    pass  # dotenv not required, will use system env vars
+    load_dotenv()
+except Exception:
+    pass
 
 try:
-    from google import genai
+    import google.genai as genai
 
     GEMINI_AVAILABLE = True
-    print("Google Generative AI module loaded. Auto-descriptions enabled.")
-except ImportError:
+except Exception:
     GEMINI_AVAILABLE = False
-    print("Warning: google-genai not available. Auto-descriptions disabled.")
 
-try:
-    import numpy as np
-    import zmq
+# =====================================================================
+# Configuration
+# =====================================================================
 
-    MOCAP_AVAILABLE = True
-except ImportError:
-    MOCAP_AVAILABLE = False
-    print("Warning: ZMQ/numpy not available. Mocap disabled.")
+# IP of the PC that Arduinos connect to
+PC_ADDRESS = "0.0.0.0"  # bind on all interfaces
 
-try:
-    import h5py
-
-    HDF5_AVAILABLE = True
-except ImportError:
-    HDF5_AVAILABLE = False
-    print("ERROR: h5py not installed. Install with: pip install h5py")
-    sys.exit(1)
-
-try:
-    import matplotlib
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
-
-    matplotlib.use("TkAgg")  # Use TkAgg backend for live plotting
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
-    print("Warning: matplotlib not available. Live plotting disabled.")
-
-# ============================================================================
-# CONFIGURATION - Edit these values
-# ============================================================================
-
+# Which Arduino IDs to use (1-based indexing)
 ARDUINO_IDS = [3, 6, 7, 8]
-TARGET_PRESSURES = [5.0, 5.0, 5.0, 5.0]
-MAX_PRESSURE = 20.0  # Safety limit based on Arduino DAC scaling
-PC_ADDRESS = "10.211.215.251"
+
+# TCP ports (index 0 is Arduino 1, etc.)
+ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 
 # Experiment settings
-EXPERIMENT_DURATION = 300.0
-END_AFTER_ONE_CYCLE = False
+EXPERIMENT_DURATION = 120.0  # seconds
+RAMPDOWN_DURATION = 5.0      # seconds to ramp down all pressures to zero
 
-# Graceful exit settings
-RAMPDOWN_DURATION = 5.0  # seconds to ramp down all pressures to zero
+# Desired base pressures (one per Arduino ID, in PSI)
+TARGET_PRESSURES = [3.0 for _ in ARDUINO_IDS]
+
+# Waveform to run
+WAVE_FUNCTION = "axial"      # or "circular", "static"
 
 # Mocap settings
 USE_MOCAP = True
 MOCAP_PORT = "tcp://127.0.0.1:3885"
-MOCAP_DATA_SIZE = 21
+MOCAP_DATA_SIZE = 21  # 3 rigid bodies * 7 values each
+
+# Plotting
+USE_LIVE_PLOT = True and HAS_MPL
 
 # Gemini API settings
 USE_GEMINI_AUTO_DESCRIPTION = True
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")  # Set via environment variable
-WAVE_FUNCTION = "axial"
-# WAVE_FUNCTION = "circular"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-# Live plotting settings
-USE_LIVE_PLOT = True  # Enable/disable live plotting
-LIVE_PLOT_UPDATE_INTERVAL = 100  # Update plot every N milliseconds
-LIVE_PLOT_HISTORY = 300  # Number of data points to show (30s at 10Hz)
+# =====================================================================
+# Logging setup
+# =====================================================================
 
-
-# ============================================================================
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 
+# =====================================================================
+# Arduino Manager
+# =====================================================================
 
 class ArduinoManager:
-    def __init__(self):
-        self.server_sockets = []
-        self.client_sockets = []
+    """
+    Manages TCP connections to multiple Arduinos.
+    PC -> Arduino: float32 desired pressure (psi)
+    Arduino -> PC: 4 * int16 ADC counts from ADS1115 (big endian)
+    """
 
-    def connect(self):
+    def __init__(self) -> None:
+        self.server_sockets: List[socket.socket] = []
+        self.client_sockets: List[socket.socket] = []
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=len(ARDUINO_IDS)
+        )
+
+    def connect(self) -> None:
+        """Bind/listen on all configured ports and accept Arduino connections."""
         for arduino_id in ARDUINO_IDS:
+            port = ARDUINO_PORTS[arduino_id - 1]
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind((PC_ADDRESS, ARDUINO_PORTS[arduino_id - 1]))
+            sock.bind((PC_ADDRESS, port))
             sock.listen(1)
-            logger.info(f"Waiting for Arduino {arduino_id}...")
+            logger.info(f"Waiting for Arduino {arduino_id} on port {port}...")
             self.server_sockets.append(sock)
 
             client, addr = sock.accept()
+            logger.info(f"Arduino {arduino_id} connected from {addr}")
             self.client_sockets.append(client)
-            logger.info(f"Arduino {arduino_id} connected")
-        return True
 
-    def send_pressure(self, idx, pressure):
+    def send_pressure(self, idx: int, pressure: float) -> List[float]:
+        """
+        Send desired pressure (psi) to Arduino idx and read back 4 sensor pressures.
+
+        Arduino sends 4 x int16 from an ADS1115 configured with:
+            adc.setGain(GAIN_TWOTHIRDS);  # ±6.144 V full-scale
+
+        ADS1115 LSB = 6.144 / 32768 V ≈ 0.0001875 V per count.
+        Pressure sensor: 0.5–4.5 V -> 0–30 psi.
+        """
         try:
-            self.client_sockets[idx].send(struct.pack("f", pressure))
+            # send desired pressure as float32 (little-endian from Arduino side)
+            self.client_sockets[idx].send(struct.pack("f", float(pressure)))
+
+            # read 4 * int16 = 8 bytes
             data = b""
             while len(data) < 8:
                 chunk = self.client_sockets[idx].recv(8 - len(data))
                 if not chunk:
-                    raise ConnectionError("Connection closed")
+                    raise ConnectionError("Arduino disconnected")
                 data += chunk
 
-            sensors = []
-            for val in struct.unpack(">4h", data):
-                volt = val * (12.288 / 65536.0)
-                sensors.append(round((30.0 * (volt - 0.5)) / 4.0, 8))
+            sensors: List[float] = []
+            for counts in struct.unpack(">4h", data):
+                # ADS1115 conversion: counts -> volts (GAIN_TWOTHIRDS, ±6.144 V)
+                volts = counts * (6.144 / 32768.0)
+
+                # Sensor transfer: 0.5–4.5 V => 0–30 psi
+                pressure_psi = 30.0 * (volts - 0.5) / 4.0
+
+                sensors.append(pressure_psi)
+
             return sensors
         except Exception as e:
-            logger.error(f"Error sending to Arduino {idx}: {e}")
-            return [0.0] * 4
+            logger.error(f"send_pressure failed for Arduino index {idx}: {e}")
+            return [float("nan")] * 4
 
-    def cleanup(self):
-        for sock in self.client_sockets + self.server_sockets:
+    def send_all_parallel(self, desired_pressures: List[float]) -> List[List[float]]:
+        """Send pressures to all Arduinos in parallel using a thread pool."""
+        results: List[Optional[List[float]]] = [None] * len(ARDUINO_IDS)
+
+        def _worker(i: int, p: float):
+            return i, self.send_pressure(i, p)
+
+        futures = [
+            self.executor.submit(_worker, i, desired_pressures[i])
+            for i in range(len(ARDUINO_IDS))
+        ]
+
+        for fut in concurrent.futures.as_completed(futures):
+            i, sensors = fut.result()
+            results[i] = sensors
+
+        # Replace any None with NaNs
+        return [r if r is not None else [math.nan] * 4 for r in results]
+
+    def ramp_down(self, seconds: float) -> None:
+        """Linearly ramp all pressures down to zero over given time."""
+        if seconds <= 0:
+            return
+        start = time.perf_counter()
+        # capture last commanded pressures if you want; here use TARGET_PRESSURES
+        initial = TARGET_PRESSURES.copy()
+        while True:
+            elapsed = time.perf_counter() - start
+            if elapsed >= seconds:
+                cmds = [0.0 for _ in ARDUINO_IDS]
+            else:
+                alpha = 1.0 - elapsed / seconds
+                cmds = [alpha * p for p in initial]
+
+            self.send_all_parallel(cmds)
+
+            if elapsed >= seconds:
+                break
+            time.sleep(0.02)
+
+    def cleanup(self) -> None:
+        """Close all sockets and shut down executor."""
+        for s in self.client_sockets + self.server_sockets:
             try:
-                sock.close()
-            except:
+                s.close()
+            except Exception:
                 pass
+        self.client_sockets.clear()
+        self.server_sockets.clear()
+        try:
+            self.executor.shutdown(wait=False)
+        except Exception:
+            pass
 
+
+# =====================================================================
+# Mocap Manager
+# =====================================================================
 
 class MocapManager:
-    def __init__(self):
-        self.data = [0.0] * MOCAP_DATA_SIZE
+    """ZeroMQ subscriber for mocap data."""
+
+    def __init__(self) -> None:
+        self.data = [math.nan] * MOCAP_DATA_SIZE
+        self.last_timestamp_ns: Optional[int] = None
         self.running = False
         self.socket = None
-        self.thread = None
+        self.thread: Optional[threading.Thread] = None
 
-    def connect(self):
-        if not MOCAP_AVAILABLE:
+    def connect(self) -> bool:
+        if not (USE_MOCAP and HAS_ZMQ):
             return False
         try:
-            ctx = zmq.Context()
-            self.socket = ctx.socket(zmq.SUB)
-            self.socket.setsockopt_string(zmq.SUBSCRIBE, "")
-            self.socket.setsockopt(zmq.CONFLATE, True)
-            self.socket.connect(MOCAP_PORT)
-            logger.info("Mocap connected")
+            ctx = zmq.Context.instance()
+            sock = ctx.socket(zmq.SUB)
+            sock.connect(MOCAP_PORT)
+            sock.setsockopt(zmq.SUBSCRIBE, b"")
+            # Only keep the latest sample
+            sock.setsockopt(zmq.CONFLATE, 1)
+            self.socket = sock
+            logger.info(f"Connected to mocap at {MOCAP_PORT}")
             return True
-        except:
+        except Exception as e:
+            logger.error(f"Failed to connect to mocap: {e}")
             return False
 
-    def start(self):
+    def start(self) -> None:
         if not self.socket:
             return
         self.running = True
         self.thread = threading.Thread(target=self._loop, daemon=True)
         self.thread.start()
 
-    def _loop(self):
+    def _loop(self) -> None:
         last_data = None
         while self.running:
             try:
                 msg = self.socket.recv(zmq.NOBLOCK)
+                t_ns = time.perf_counter_ns()
                 arr = np.fromstring(msg.decode("utf-8"), dtype=float, sep=",")
                 if len(arr) >= MOCAP_DATA_SIZE:
                     self.data = arr[:MOCAP_DATA_SIZE].tolist()
-                    last_data = self.data.copy()
-            except:
-                if last_data:
+                    self.last_timestamp_ns = t_ns
+                    last_data = self.data
+            except zmq.Again:
+                # no message ready
+                pass
+            except Exception:
+                # keep last good data if something goes wrong
+                if last_data is not None:
                     self.data = last_data.copy()
-            time.sleep(0.01)
+            time.sleep(0.005)
 
     def get_data(self):
-        return self.data.copy()
+        return self.data.copy(), self.last_timestamp_ns
 
-    def stop(self):
+    def stop(self) -> None:
         self.running = False
         if self.thread:
             self.thread.join(timeout=1.0)
 
 
-class LivePlotter:
-    def __init__(self, controller):
-        self.controller = controller
-        self.running = False
-        self.fig = None
-        self.axes = None
-        self.lines_desired = []
-        self.lines_measured = []
-        self.time_data = []
-        self.desired_data = [[] for _ in ARDUINO_IDS]
-        self.measured_data = [[[] for _ in range(4)] for _ in ARDUINO_IDS]
-        self.mocap_history = {"x": [], "y": [], "z": []}
-        self.start_time = None
-        self.max_history = LIVE_PLOT_HISTORY
-
-    def start(self):
-        if not MATPLOTLIB_AVAILABLE or not USE_LIVE_PLOT:
-            return
-
-        self.running = True
-        self.start_time = time.time()
-
-        # Create figure with subplots (2x2 grid)
-        self.fig, self.axes = plt.subplots(2, 2, figsize=(12, 8))
-        self.fig.suptitle("Live Sensor Readings", fontsize=14, fontweight="bold")
-
-        # Flatten axes for easier indexing
-        self.axes = self.axes.flatten()
-
-        # Setup subplot 1: Desired Pressures (Top-Left)
-        ax = self.axes[0]
-        ax.set_title("Desired Pressures")
-        ax.set_ylabel("Pressure (PSI)")
-        ax.grid(True, alpha=0.3)
-        colors = ["tab:red", "tab:orange", "tab:blue", "tab:green"]
-        for i, aid in enumerate(ARDUINO_IDS):
-            (line,) = ax.plot(
-                [], [], label=f"Arduino {aid}", color=colors[i], linewidth=2
-            )
-            self.lines_desired.append(line)
-        ax.legend(loc="upper right")
-        ax.set_ylim(-1, MAX_PRESSURE + 2)
-
-        # Setup subplot 2: Measured Pressures (Segment 1 & 2) (Top-Right)
-        ax = self.axes[1]
-        ax.set_title("Measured Pressures (Segments 1 & 2)")
-        ax.set_ylabel("Pressure (PSI)")
-        ax.grid(True, alpha=0.3)
-        segment1_colors = ["tab:red", "tab:pink", "crimson", "tab:brown", "salmon"]
-        segment2_colors = ["tab:orange", "tab:olive", "gold", "darkorange", "peru"]
-
-        # Arduino 3 sensors (Segment 1, first 4 sensors)
-        for s in range(4):
-            (line,) = ax.plot(
-                [],
-                [],
-                label=f"A3_S{s + 1}",
-                color=segment1_colors[s],
-                linewidth=1.5,
-                alpha=0.8,
-            )
-            self.lines_measured.append((0, s, line))
-
-        # Arduino 7 sensor 1 (Segment 1, 5th sensor)
-        (line,) = ax.plot(
-            [], [], label=f"A7_S1", color=segment1_colors[4], linewidth=1.5, alpha=0.8
-        )
-        self.lines_measured.append((2, 0, line))
-
-        # Arduino 7 sensors 2-4 (Segment 2, first 3 sensors)
-        for s in range(1, 4):
-            (line,) = ax.plot(
-                [],
-                [],
-                label=f"A7_S{s + 1}",
-                color=segment2_colors[s - 1],
-                linewidth=1.5,
-                alpha=0.8,
-            )
-            self.lines_measured.append((2, s, line))
-
-        # Arduino 8 sensors 1-2 (Segment 2, last 2 sensors)
-        for s in range(2):
-            (line,) = ax.plot(
-                [],
-                [],
-                label=f"A8_S{s + 1}",
-                color=segment2_colors[3 + s],
-                linewidth=1.5,
-                alpha=0.8,
-            )
-            self.lines_measured.append((3, s, line))
-
-        ax.legend(loc="upper right", ncol=3, fontsize=8)
-        ax.set_ylim(-1, 15)
-
-        # Setup subplot 3: Measured Pressures (Segments 3 & 4) (Bottom-Left)
-        ax = self.axes[2]
-        ax.set_title("Measured Pressures (Segments 3 & 4)")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Pressure (PSI)")
-        ax.grid(True, alpha=0.3)
-
-        # Arduino 8 sensor 3 (Segment 3)
-        (line,) = ax.plot([], [], label="Segment 3", color="tab:blue", linewidth=2)
-        self.lines_measured.append((3, 2, line))
-
-        # Arduino 8 sensor 4 (Segment 4)
-        (line,) = ax.plot([], [], label="Segment 4", color="tab:purple", linewidth=2)
-        self.lines_measured.append((3, 3, line))
-
-        ax.legend(loc="upper right")
-        ax.set_ylim(-1, 15)
-
-        # Setup subplot 4: Trajectory (Bottom-Right)
-        ax = self.axes[3]
-        ax.set_title("Trajectory (Body 1)")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Position (m)")
-        ax.grid(True, alpha=0.3)
-
-        (self.line_traj_x,) = ax.plot([], [], label="X", color="r", linewidth=1.5)
-        (self.line_traj_y,) = ax.plot([], [], label="Y", color="g", linewidth=1.5)
-        (self.line_traj_z,) = ax.plot([], [], label="Z", color="b", linewidth=1.5)
-
-        ax.legend(loc="upper right")
-        # Auto-scale y-axis for trajectory
-
-        plt.tight_layout()
-
-        # Start animation
-        self.ani = FuncAnimation(
-            self.fig, self._update, interval=LIVE_PLOT_UPDATE_INTERVAL, blit=False
-        )
-
-        # Show plot in non-blocking mode
-        plt.ion()
-        plt.show(block=False)
-
-    def _update(self, frame):
-        if not self.running:
-            return
-
-        # Get current time
-        current_time = time.time() - self.start_time
-
-        # Get data with lock
-        with self.controller.data_lock:
-            desired = self.controller.desired.copy()
-            measured = [
-                m.copy() if isinstance(m, list) else [m] * 4
-                for m in self.controller.measured
-            ]
-            mocap_data = (
-                self.controller.mocap.get_data() if self.controller.mocap else None
-            )
-
-        # Append to history
-        self.time_data.append(current_time)
-        for i in range(len(ARDUINO_IDS)):
-            self.desired_data[i].append(desired[i])
-            for s in range(4):
-                self.measured_data[i][s].append(measured[i][s])
-
-        # Append mocap data
-        if mocap_data and len(mocap_data) >= 3:
-            self.mocap_history["x"].append(mocap_data[0])
-            self.mocap_history["y"].append(mocap_data[1])
-            self.mocap_history["z"].append(mocap_data[2])
-        else:
-            self.mocap_history["x"].append(0)
-            self.mocap_history["y"].append(0)
-            self.mocap_history["z"].append(0)
-
-        # Trim history if too long
-        if len(self.time_data) > self.max_history:
-            self.time_data = self.time_data[-self.max_history :]
-            for i in range(len(ARDUINO_IDS)):
-                self.desired_data[i] = self.desired_data[i][-self.max_history :]
-                for s in range(4):
-                    self.measured_data[i][s] = self.measured_data[i][s][
-                        -self.max_history :
-                    ]
-
-            self.mocap_history["x"] = self.mocap_history["x"][-self.max_history :]
-            self.mocap_history["y"] = self.mocap_history["y"][-self.max_history :]
-            self.mocap_history["z"] = self.mocap_history["z"][-self.max_history :]
-
-        # Update desired pressure lines
-        for i, line in enumerate(self.lines_desired):
-            line.set_data(self.time_data, self.desired_data[i])
-
-        # Update measured pressure lines
-        for arduino_idx, sensor_idx, line in self.lines_measured:
-            line.set_data(self.time_data, self.measured_data[arduino_idx][sensor_idx])
-
-        # Update trajectory lines
-        self.line_traj_x.set_data(self.time_data, self.mocap_history["x"])
-        self.line_traj_y.set_data(self.time_data, self.mocap_history["y"])
-        self.line_traj_z.set_data(self.time_data, self.mocap_history["z"])
-
-        # Update trajectory y-limits dynamically if needed, or just let user zoom
-        # For now, simple auto-scaling based on recent data
-        if len(self.mocap_history["x"]) > 0:
-            all_vals = (
-                self.mocap_history["x"]
-                + self.mocap_history["y"]
-                + self.mocap_history["z"]
-            )
-            min_val, max_val = min(all_vals), max(all_vals)
-            margin = (max_val - min_val) * 0.1 if max_val != min_val else 1.0
-            self.axes[3].set_ylim(min_val - margin, max_val + margin)
-
-        # Update x-axis limits
-        if len(self.time_data) > 0:
-            for ax in self.axes:
-                ax.set_xlim(max(0, current_time - 30), current_time + 1)
-
-        return (
-            self.lines_desired
-            + [line for _, _, line in self.lines_measured]
-            + [self.line_traj_x, self.line_traj_y, self.line_traj_z]
-        )
-
-    def stop(self):
-        self.running = False
-        if MATPLOTLIB_AVAILABLE and USE_LIVE_PLOT and self.fig:
-            plt.close(self.fig)
-
+# =====================================================================
+# Data Logger
+# =====================================================================
 
 class DataLogger:
-    def __init__(self):
-        self.hdf5_path = None
-        self.exp_group_name = None
-        self.start_time = None
-        self.data_buffer = []
+    """
+    Streaming HDF5 logger with:
+      - step_id (monotonic integer index)
+      - time (monotonic high-res seconds since start)
+      - periodic flushing to disk to reduce data loss on crash
+    """
+
+    def __init__(self) -> None:
+        self.hdf5_path: Optional[str] = None
+        self.exp_group_name: Optional[str] = None
+
+        self.start_time_ns: Optional[int] = None
+        self.last_flush_wall: Optional[float] = None
+
+        self.data_buffer: List[List[float]] = []
         self.lock = threading.Lock()
-        self.flush_interval = 100  # Flush every 100 samples
-        self.dataset = None
 
-    def generate_ai_description(self) -> str:
-        """Generate a brief experiment description using Gemini Flash"""
-        if (
-            not GEMINI_AVAILABLE
-            or not USE_GEMINI_AUTO_DESCRIPTION
-            or not GEMINI_API_KEY
-        ):
-            return "No description provided"
+        self.flush_interval_s = 0.5
+        self.flush_batch_size = 100
 
-        try:
-            # No need to import again, it's done at the top level
-            client = genai.Client()
-            model = "gemini-2.5-flash"
-            # Create a concise prompt with experiment details
-            prompt = f"""
-                        Generate a 1-sentence experiment description (max 15 words) for:
-                        Type: {WAVE_FUNCTION}
-                        Duration: {int(EXPERIMENT_DURATION)}s
-                        Arduinos: {ARDUINO_IDS}
-                        Pressures: {TARGET_PRESSURES} PSI
-                        MoCap: {"Yes" if USE_MOCAP and MOCAP_AVAILABLE else "No"}
-                    """
+        self.columns: List[str] = []
+        self._initialized_dataset = False
+        self.total_samples = 0
 
-            response = client.models.generate_content(model=model, contents=prompt)
+    # ---------------- column & dataset helpers ----------------
 
-            description = response.text.strip()
-            logger.info(f"AI description: {description}")
-            return description
+    def _build_column_names(self) -> List[str]:
+        cols: List[str] = ["step_id", "time"]
 
-        except Exception as e:
-            logger.warning(f"Failed to generate AI description: {e}")
-            return "Auto-description failed"
+        # Desired pressures
+        for aid in ARDUINO_IDS:
+            cols.append(f"pd_{aid}")
 
-    def start(self):
-        now = datetime.datetime.now()
-        folder = "experiments"
-        os.makedirs(folder, exist_ok=True)
+        # Measured pressures: 4 sensors per Arduino
+        for aid in ARDUINO_IDS:
+            for s in range(1, 5):
+                cols.append(f"pm_{aid}_{s}")
 
-        # Create monthly HDF5 file
-        month_file = now.strftime("%Y_%B.h5")
-        self.hdf5_path = os.path.join(folder, month_file)
+        # Mocap columns
+        if USE_MOCAP and HAS_ZMQ:
+            # 3 bodies * (x,y,z,qx,qy,qz,qw)
+            for body_num in range(1, 4):
+                cols.extend(
+                    [
+                        f"mocap_{body_num}_x",
+                        f"mocap_{body_num}_y",
+                        f"mocap_{body_num}_z",
+                        f"mocap_{body_num}_qx",
+                        f"mocap_{body_num}_qy",
+                        f"mocap_{body_num}_qz",
+                        f"mocap_{body_num}_qw",
+                    ]
+                )
+            # plus mocap time offset
+            cols.append("mocap_time_rel_s")
 
-        # Determine experiment number
-        exp_num = 1
-        if os.path.exists(self.hdf5_path):
-            with h5py.File(self.hdf5_path, "r") as f:
-                existing = [k for k in f.keys() if k.startswith("exp_")]
-                if existing:
-                    # Extract numbers from exp names
-                    numbers = []
-                    for exp_name in existing:
-                        try:
-                            # Split by underscore and get the number after exp_
-                            parts = exp_name.split("_")
-                            if len(parts) >= 2:
-                                num = int(parts[1])
-                                numbers.append(num)
-                        except (ValueError, IndexError):
-                            continue
-                    if numbers:
-                        exp_num = max(numbers) + 1
+        return cols
 
-        # Create experiment name with human-readable date/time
-        # Format: exp_001_axial_Oct30_14h23m
-        date_str = now.strftime("%b%d_%Hh%Mm")
-        self.exp_group_name = f"exp_{exp_num:03d}_{WAVE_FUNCTION}_{date_str}"
-        self.start_time = time.time()
-
-        logger.info(
-            f"Logging to: {os.path.abspath(self.hdf5_path)} -> {self.exp_group_name}"
-        )
-
-        # Initialize HDF5 file and dataset
-        self._init_hdf5()
-
-    def _init_hdf5(self):
-        if not self.hdf5_path:
+    def _ensure_dataset_and_append(self, data_array: np.ndarray) -> None:
+        if data_array.size == 0:
             return
 
-        try:
-            with h5py.File(self.hdf5_path, "a") as f:
+        with h5py.File(self.hdf5_path, "a") as f:
+            if not self._initialized_dataset:
                 grp = f.create_group(self.exp_group_name)
-
-                # Create column names
-                col_names = ["time"]
-                for aid in ARDUINO_IDS:
-                    col_names.append(f"pd_{aid}")
-                for aid in ARDUINO_IDS:
-                    for s in range(1, 5):
-                        col_names.append(f"pm_{aid}_{s}")
-
-                if USE_MOCAP and MOCAP_AVAILABLE:
-                    for body_num in range(1, 4):
-                        col_names.append(f"mocap_{body_num}_x")
-                        col_names.append(f"mocap_{body_num}_y")
-                        col_names.append(f"mocap_{body_num}_z")
-                        col_names.append(f"mocap_{body_num}_qx")
-                        col_names.append(f"mocap_{body_num}_qy")
-                        col_names.append(f"mocap_{body_num}_qz")
-                        col_names.append(f"mocap_{body_num}_qw")
-
-                # Create resizable dataset
-                # Shape: (0, num_columns), Max Shape: (Unlimited, num_columns)
-                num_cols = len(col_names)
                 grp.create_dataset(
                     "data",
-                    shape=(0, num_cols),
-                    maxshape=(None, num_cols),
-                    dtype="float32",
+                    data=data_array,
+                    maxshape=(None, data_array.shape[1]),
                     compression="gzip",
                     compression_opts=4,
                 )
 
-                # Save metadata immediately
-                grp.attrs["columns"] = col_names
+                grp.attrs["columns"] = self.columns
                 grp.attrs["timestamp"] = datetime.datetime.now().isoformat()
-                grp.attrs["experiment_type"] = WAVE_FUNCTION
-                grp.attrs["duration_seconds"] = EXPERIMENT_DURATION
-                grp.attrs["mocap_enabled"] = USE_MOCAP and MOCAP_AVAILABLE
+                grp.attrs["wave_function"] = WAVE_FUNCTION
                 grp.attrs["arduino_ids"] = ARDUINO_IDS
-                grp.attrs["target_pressures_psi"] = TARGET_PRESSURES
-                grp.attrs["end_after_one_cycle"] = END_AFTER_ONE_CYCLE
-                grp.attrs["rampdown_duration_seconds"] = RAMPDOWN_DURATION
-                grp.attrs["pc_address"] = PC_ADDRESS
+                grp.attrs["target_pressures"] = TARGET_PRESSURES
+                grp.attrs["mocap_enabled"] = bool(USE_MOCAP and HAS_ZMQ)
 
-                if USE_MOCAP and MOCAP_AVAILABLE:
-                    grp.attrs["mocap_port"] = MOCAP_PORT
-                    grp.attrs["mocap_data_size"] = MOCAP_DATA_SIZE
+                self._initialized_dataset = True
+            else:
+                grp = f[self.exp_group_name]
+                dset = grp["data"]
+                old_rows = dset.shape[0]
+                new_rows = old_rows + data_array.shape[0]
+                dset.resize((new_rows, dset.shape[1]))
+                dset[old_rows:new_rows, :] = data_array
 
-                # Description will be updated at the end
-                grp.attrs["description"] = "Experiment in progress..."
+            f.flush()
 
-        except Exception as e:
-            logger.error(f"Error initializing HDF5: {e}")
+    def _flush_buffer_locked(self) -> None:
+        if not self.data_buffer:
+            return
+        arr = np.array(self.data_buffer, dtype=np.float64)
+        self.data_buffer.clear()
+        self._ensure_dataset_and_append(arr)
+        self.last_flush_wall = time.time()
 
-    def log(self, desired, measured, mocap=None):
-        if not self.hdf5_path:
+    # ---------------- public API ----------------
+
+    def start(self) -> None:
+        now = datetime.datetime.now()
+        folder = "experiments"
+        os.makedirs(folder, exist_ok=True)
+
+        month_file = now.strftime("%Y_%B.h5")
+        self.hdf5_path = os.path.join(folder, month_file)
+
+        # Determine next experiment group index
+        exp_num = 1
+        if os.path.exists(self.hdf5_path):
+            with h5py.File(self.hdf5_path, "r") as f:
+                existing = [k for k in f.keys() if k.startswith("exp_")]
+                numbers: List[int] = []
+                for name in existing:
+                    try:
+                        parts = name.split("_")
+                        if len(parts) >= 2:
+                            numbers.append(int(parts[1]))
+                    except Exception:
+                        continue
+                if numbers:
+                    exp_num = max(numbers) + 1
+
+        date_str = now.strftime("%b%d_%Hh%Mm")
+        self.exp_group_name = f"exp_{exp_num:03d}_{WAVE_FUNCTION}_{date_str}"
+
+        self.start_time_ns = time.perf_counter_ns()
+        self.last_flush_wall = time.time()
+        self.columns = self._build_column_names()
+
+        logger.info(
+            f"Logging to HDF5: {os.path.abspath(self.hdf5_path)} group={self.exp_group_name}"
+        )
+
+    def log(
+        self,
+        step_id: int,
+        desired: List[float],
+        measured: List[List[float]],
+        mocap_tuple=None,
+    ) -> None:
+        if self.hdf5_path is None or self.start_time_ns is None:
             return
 
-        # Build data row
-        row = [time.time() - self.start_time]
-        row.extend(desired)
+        now_ns = time.perf_counter_ns()
+        t_rel_s = (now_ns - self.start_time_ns) / 1e9
+
+        row: List[float] = [float(step_id), float(t_rel_s)]
+
+        # Desired
+        row.extend(float(p) for p in desired)
+
+        # Measured
         for sensors in measured:
-            row.extend(sensors)
-        if mocap:
-            row.extend(mocap)
+            row.extend(float(v) for v in sensors)
+
+        if USE_MOCAP and HAS_ZMQ:
+            mocap_data = None
+            mocap_dt_s = math.nan
+            if mocap_tuple is not None:
+                mocap_vec, mocap_ts_ns = mocap_tuple
+                if mocap_vec is not None and len(mocap_vec) >= MOCAP_DATA_SIZE:
+                    mocap_data = mocap_vec[:MOCAP_DATA_SIZE]
+                    if mocap_ts_ns is not None:
+                        mocap_dt_s = (mocap_ts_ns - self.start_time_ns) / 1e9
+
+            if mocap_data is None:
+                row.extend([math.nan] * MOCAP_DATA_SIZE)
+            else:
+                row.extend(float(v) for v in mocap_data)
+            row.append(float(mocap_dt_s))
 
         with self.lock:
             self.data_buffer.append(row)
-            if len(self.data_buffer) >= self.flush_interval:
-                self.flush()
+            self.total_samples += 1
 
-    def flush(self):
-        if not self.hdf5_path or not self.data_buffer:
+            need_flush = False
+            if len(self.data_buffer) >= self.flush_batch_size:
+                need_flush = True
+            elif (
+                self.last_flush_wall is None
+                or (time.time() - self.last_flush_wall) >= self.flush_interval_s
+            ):
+                need_flush = True
+
+            if need_flush:
+                self._flush_buffer_locked()
+
+    def stop(self, description: Optional[str] = None) -> None:
+        if self.hdf5_path is None or self.exp_group_name is None:
             return
+
+        with self.lock:
+            self._flush_buffer_locked()
 
         try:
             with h5py.File(self.hdf5_path, "a") as f:
+                if self.exp_group_name not in f:
+                    logger.warning(
+                        f"Group {self.exp_group_name} not found in {self.hdf5_path}"
+                    )
+                    return
                 grp = f[self.exp_group_name]
-                dset = grp["data"]
-
-                # Resize dataset to accommodate new data
-                current_shape = dset.shape
-                new_rows = len(self.data_buffer)
-                dset.resize((current_shape[0] + new_rows, current_shape[1]))
-
-                # Append data
-                dset[current_shape[0] :] = self.data_buffer
-
-                # Clear buffer
-                self.data_buffer = []
-        except Exception as e:
-            logger.error(f"Error flushing data to HDF5: {e}")
-
-    def stop(self, description=None):
-        if not self.hdf5_path or not self.data_buffer:
-            return
-
-        # Flush remaining data
-        self.flush()
-
-        # Update description and final metadata
-        try:
-            with h5py.File(self.hdf5_path, "a") as f:
-                grp = f[self.exp_group_name]
-
-                # Update sample count
-                grp.attrs["sample_count"] = grp["data"].shape[0]
-
-                # Update description
+                grp.attrs["sample_count"] = int(self.total_samples)
                 if description:
                     grp.attrs["description"] = description
                 else:
-                    grp.attrs["description"] = "No description provided"
+                    grp.attrs.setdefault("description", "No description provided")
 
-                logger.info(
-                    f"Experiment saved to {self.exp_group_name}. Total samples: {grp['data'].shape[0]}"
-                )
         except Exception as e:
-            logger.error(f"Error updating HDF5 metadata: {e}")
+            logger.error(f"Error saving HDF5 metadata: {e}")
+
+    # ---------------- AI description ----------------
+
+    def generate_ai_description(self) -> str:
+        if not (GEMINI_AVAILABLE and USE_GEMINI_AUTO_DESCRIPTION and GEMINI_API_KEY):
+            return "No description provided"
+        try:
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            model = "gemini-2.5-flash"
+            prompt = f"""
+                Generate a 1-sentence experiment description (max 15 words) for:
+                Wave type: {WAVE_FUNCTION}
+                Duration: {int(EXPERIMENT_DURATION)}s
+                Arduinos: {ARDUINO_IDS}
+                Target pressures: {TARGET_PRESSURES} PSI
+                Mocap enabled: {"Yes" if USE_MOCAP and HAS_ZMQ else "No"}
+            """
+            resp = client.models.generate_content(model=model, contents=prompt)
+            return resp.text.strip()
+        except Exception as e:
+            logger.error(f"Gemini description failed: {e}")
+            return "No description provided"
 
 
-# ============================================================================
-# WAVE FUNCTIONS
-# ============================================================================
-
-
-def circular(controller):
-    """Circular motion with first Arduino at 2.0 psi"""
-
-    # Wave parameters - adjust as needed
-    WAVE_FREQ = 0.1  # Hz
-    WAVE_CENTER = 1.0  # psi
-    WAVE_AMPLITUDE = 2.0  # psi
-
-    phases = [0.0, math.pi / 2, math.pi, 3 * math.pi / 2]
-
-    controller.send_all()
-    time.sleep(5)
-
-    start = time.time()
-    while controller.running:
-        t = time.time() - start
-        for i in range(0, len(ARDUINO_IDS)):
-            phi = phases[(i - 1) % 4]
-            p = WAVE_CENTER + WAVE_AMPLITUDE * math.sin(
-                2 * math.pi * WAVE_FREQ * t + phi
-            )
-            with controller.data_lock:
-                controller.desired[i] = max(0, min(MAX_PRESSURE, p))
-        controller.send_all()
-        time.sleep(0.01)
-
-
-def axial(controller):
-    WAVE_FREQ = 0.1  # Hz (controls speed of oscillation)
-    WAVE_CENTER = 5.0  # psi (center of 0-10 psi range)
-    WAVE_AMPLITUDE = 5.0  # psi (amplitude for 0-10 psi range)
-
-    # Arduino 3 (index 0)
-    with controller.data_lock:
-        controller.desired[0] = 2.0
-        # Arduino 6 (index 1)
-        controller.desired[1] = 2.0
-        # Arduino 7 (index 2) - Start at 0 psi (bottom of its wave)
-        controller.desired[2] = WAVE_CENTER - WAVE_AMPLITUDE
-        # Arduino 8 (index 3)
-        controller.desired[3] = 2.0
-
-    # Send all initial pressures
-    controller.send_all()
-    time.sleep(5)  # Pause for 0.5s after setting initial state
-
-    # --- Main Loop ---
-    start = time.time()
-    while controller.running:
-        # controller.desired[1] = 2.0  # Arduino 6
-        # controller.desired[3] = 2.0  # Arduino 8
-
-        t = time.time() - start  # Get elapsed time
-
-        p_arduino7 = WAVE_CENTER + WAVE_AMPLITUDE * math.sin(
-            2 * math.pi * WAVE_FREQ * t
-        )
-
-        # Set desired pressure, clamping between 0 and MAX_PRESSURE as a safety
-        with controller.data_lock:
-            controller.desired[2] = max(0.0, min(MAX_PRESSURE, p_arduino7))
-
-        # 3. Send all updated pressures to the controller
-        controller.send_all()
-
-        # 4. Short pause before next update
-        time.sleep(0.01)
-
-
-def sequential(controller):
-    """Sequential: Arduino 4 constant, Arduino 8 cycles"""
-    try:
-        idx_4 = ARDUINO_IDS.index(4)
-        idx_8 = ARDUINO_IDS.index(8)
-    except ValueError:
-        logger.error("Sequential needs Arduinos 4 and 8")
-        return
-
-    # Ramp up Arduino 4
-    with controller.data_lock:
-        for i in range(len(ARDUINO_IDS)):
-            controller.desired[i] = 0.0
-
-    target = TARGET_PRESSURES[idx_4]
-    for t in range(int(target * 20)):
-        with controller.data_lock:
-            controller.desired[idx_4] = min(target, t / 20.0)
-        controller.send_all()
-        time.sleep(0.01)
-
-    # Cycle Arduino 8
-    while controller.running:
-        target = TARGET_PRESSURES[idx_8]
-
-        # Ramp up
-        for t in range(int(target * 20)):
-            with controller.data_lock:
-                controller.desired[idx_8] = min(target, t / 20.0)
-            controller.send_all()
-            time.sleep(0.01)
-
-        time.sleep(2.0)
-
-        # Ramp down
-        for t in range(int(target * 20)):
-            with controller.data_lock:
-                controller.desired[idx_8] = max(0, target - t / 20.0)
-            controller.send_all()
-            time.sleep(0.01)
-
-        time.sleep(2.0)
-
-        if END_AFTER_ONE_CYCLE:
-            break
-
-
-def elliptical(controller):
-    """Elliptical motion"""
-    WAVE_FREQ = 0.1
-    WAVE_CENTER = 3.0
-    WAVE_AMPLITUDE = 2.0
-
-    phases = [0.0, math.pi / 2, math.pi, 3 * math.pi / 2]
-
-    start = time.time()
-    while controller.running:
-        t = time.time() - start
-        for i in range(len(ARDUINO_IDS)):
-            amp = WAVE_AMPLITUDE if i % 2 == 0 else WAVE_AMPLITUDE * 0.5
-            phi = phases[i % 4]
-            p = WAVE_CENTER + amp * math.sin(2 * math.pi * WAVE_FREQ * t + phi)
-            with controller.data_lock:
-                controller.desired[i] = max(0, min(MAX_PRESSURE, p))
-        controller.send_all()
-        time.sleep(0.01)
-
-
-WAVES = {
-    "circular": circular,
-    "sequential": sequential,
-    "elliptical": elliptical,
-    "axial": axial,
-}
-
-
-# ============================================================================
-# MAIN CONTROLLER
-# ============================================================================
-
+# =====================================================================
+# Controller
+# =====================================================================
 
 class Controller:
-    def __init__(self):
-        self.arduino = ArduinoManager()
-        self.mocap = MocapManager() if USE_MOCAP else None
+    def __init__(self) -> None:
+        self.arduinos = ArduinoManager()
         self.logger = DataLogger()
+        self.mocap: Optional[MocapManager] = None
+
         self.running = False
-        self.desired = [0.0] * len(ARDUINO_IDS)
-        self.measured = [[0.0] * 4 for _ in ARDUINO_IDS]
+
+        # Shared data
         self.data_lock = threading.Lock()
-        self.live_plotter = LivePlotter(self) if USE_LIVE_PLOT else None
+        self.desired: List[float] = [0.0 for _ in ARDUINO_IDS]
+        self.measured: List[List[float]] = [[math.nan] * 4 for _ in ARDUINO_IDS]
 
-    def initialize(self):
-        if not self.arduino.connect():
-            return False
-        if self.mocap:
-            self.mocap.connect()
-        return True
+        # Threads
+        self.wave_thread: Optional[threading.Thread] = None
+        self.log_thread: Optional[threading.Thread] = None
+        self.progress_thread: Optional[threading.Thread] = None
 
-    def send_all(self):
-        with self.data_lock:
-            for i in range(len(ARDUINO_IDS)):
-                self.measured[i] = self.arduino.send_pressure(i, self.desired[i])
+        # Plotting
+        self.live_plotter = None
+        if USE_LIVE_PLOT and HAS_MPL:
+            self._setup_plot()
 
-    def graceful_rampdown(self):
-        """Smoothly ramp down all pressures to zero"""
-        logger.info(f"Ramping down pressures over {RAMPDOWN_DURATION}s...")
+    # ---------------- init / teardown ----------------
 
-        # Capture current pressures as starting point
-        start_pressures = self.desired.copy()
+    def _setup_plot(self) -> None:
+        fig, ax = plt.subplots()
+        self.live_plotter = {"fig": fig, "ax": ax}
+        ax.set_title("Measured Pressures")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Pressure (psi)")
+        ax.grid(True)
 
-        # Calculate ramp steps
-        steps = int(RAMPDOWN_DURATION / 0.01)  # 10ms per step
+    def initialize(self) -> bool:
+        logger.info("Connecting Arduinos...")
+        self.arduinos.connect()
+        logger.info("Arduinos connected.")
 
-        for step in range(steps + 1):
-            if not self.running:
-                break
+        if USE_MOCAP and HAS_ZMQ:
+            self.mocap = MocapManager()
+            if self.mocap.connect():
+                self.mocap.start()
+            else:
+                logger.warning("Mocap requested but unavailable; continuing without.")
+                self.mocap = None
 
-            # Linear interpolation from current pressure to 0
-            progress = step / steps
-            with self.data_lock:
-                for i in range(len(ARDUINO_IDS)):
-                    self.desired[i] = start_pressures[i] * (1.0 - progress)
-
-            self.send_all()
-            time.sleep(0.01)
-
-        # Ensure all pressures are exactly zero
-        with self.data_lock:
-            for i in range(len(ARDUINO_IDS)):
-                self.desired[i] = 0.0
-        self.send_all()
-
-        logger.info("Rampdown complete - all pressures at 0 psi")
-
-    def run(self):
         self.logger.start()
-        if self.mocap:
-            self.mocap.start()
-        if self.live_plotter:
-            self.live_plotter.start()
-
         self.running = True
 
-        # Start logging thread
-        log_thread = threading.Thread(target=self._log_loop, daemon=True)
-        log_thread.start()
+        # Start threads
+        self.wave_thread = threading.Thread(target=self._wave_loop, daemon=True)
+        self.wave_thread.start()
 
-        # Start wave thread
-        wave_thread = threading.Thread(target=self._wave_loop, daemon=True)
-        wave_thread.start()
+        self.log_thread = threading.Thread(target=self._log_loop, daemon=True)
+        self.log_thread.start()
 
-        # Start progress indicator thread
-        progress_thread = threading.Thread(target=self._progress_loop, daemon=True)
-        progress_thread.start()
+        self.progress_thread = threading.Thread(target=self._progress_loop, daemon=True)
+        self.progress_thread.start()
 
-        logger.info("Experiment started")
+        return True
 
-        # Wait
-        start = time.time()
-        while self.running and (time.time() - start) < EXPERIMENT_DURATION:
-            if self.live_plotter:
-                plt.pause(0.1)
-            else:
-                time.sleep(0.1)
+    # ---------------- wave & logging loops ----------------
 
-        self.stop()
+    # ---------------- wave & logging loops ----------------
 
-    def _log_loop(self):
+    def _wave_loop(self) -> None:
+        """
+        Generates desired pressures and communicates with Arduinos.
+
+        AXIAL behavior (segments correspond to ARDUINO_IDS order):
+          - Prefill: all 4 segments at 2 psi for a few seconds
+          - Then:
+              seg1 (index 0) -> 0 psi (cut off)
+              seg2 (index 1) -> 2 psi constant
+              seg3 (index 2) -> 0–10 psi sinusoid
+              seg4 (index 3) -> 2 psi constant
+        """
+        start = time.perf_counter()
+        PREFILL_DURATION = 5.0   # seconds
+        AXIAL_FREQ = 0.1         # Hz for segment 3
+        AXIAL_CENTER = 5.0       # center of 0–10 psi range
+        AXIAL_AMPL = 5.0         # amplitude to get ~0–10 psi swing
+
         while self.running:
-            mocap = self.mocap.get_data() if self.mocap else None
+            t = time.perf_counter() - start
+            desired: List[float] = [0.0] * len(ARDUINO_IDS)
+
+            if WAVE_FUNCTION == "axial":
+                base = 2.0
+
+                if t < PREFILL_DURATION:
+                    # Phase 1: all segments at 2 psi
+                    desired = [base] * len(ARDUINO_IDS)
+                else:
+                    # Phase 2:
+                    # seg1 -> 0 psi
+                    # seg2 -> 2 psi
+                    # seg3 -> 0–10 psi sinusoid
+                    # seg4 -> 2 psi
+                    desired[0] = 0.0              # seg1 off
+                    desired[1] = base             # seg2 constant 2 psi
+                    desired[3] = base             # seg4 constant 2 psi
+
+                    # seg3 oscillates from ~0–10 psi
+                    tau = t - PREFILL_DURATION
+                    p3 = AXIAL_CENTER + AXIAL_AMPL * math.sin(
+                        2.0 * math.pi * AXIAL_FREQ * tau
+                    )
+                    # Clamp within physical limits
+                    p3 = max(0.0, min(10.0, p3))
+                    desired[2] = p3
+
+            elif WAVE_FUNCTION == "circular":
+                desired = []
+                for i, base in enumerate(TARGET_PRESSURES):
+                    phase = (2.0 * math.pi / len(TARGET_PRESSURES)) * i
+                    val = base + base * 0.5 * math.sin(2.0 * math.pi * 0.1 * t + phase)
+                    desired.append(max(0.0, val))
+
+            else:  # "static"
+                desired = TARGET_PRESSURES.copy()
+
+            measured = self.arduinos.send_all_parallel(desired)
+
             with self.data_lock:
-                # Copy data to avoid tearing
-                desired_copy = self.desired.copy()
-                measured_copy = [
-                    m.copy() if isinstance(m, list) else m for m in self.measured
-                ]
+                self.desired = desired
+                self.measured = measured
 
-            self.logger.log(desired_copy, measured_copy, mocap)
-            time.sleep(0.01)
+            time.sleep(0.01)  # ~100 Hz loop
 
-    def _wave_loop(self):
-        logger.info(f"Running: {WAVE_FUNCTION}")
-        WAVES[WAVE_FUNCTION](self)
-        if END_AFTER_ONE_CYCLE:
-            self.running = False
+    def _log_loop(self) -> None:
+        """Logging thread: builds rows and hands to DataLogger."""
+        step_id = 0
+        while self.running:
+            if self.mocap:
+                mocap_tuple = self.mocap.get_data()
+            else:
+                mocap_tuple = None
 
-    def _progress_loop(self):
-        """Display experiment progress and live sensor readings"""
+            with self.data_lock:
+                desired_copy = list(self.desired)
+                measured_copy = [list(m) for m in self.measured]
+
+            self.logger.log(step_id, desired_copy, measured_copy, mocap_tuple)
+            step_id += 1
+            time.sleep(0.01)  # logging at ~100 Hz
+
+    def _progress_loop(self) -> None:
+        """Display experiment progress with elapsed and remaining time."""
         start = time.time()
-        total_duration_str = f"{int(EXPERIMENT_DURATION)}s"
+        total_duration = EXPERIMENT_DURATION
+        total_duration_str = f"{int(total_duration)}s"
 
         while self.running:
             elapsed = time.time() - start
+            elapsed = max(0.0, elapsed)
+            remaining = max(0.0, total_duration - elapsed)
 
-            # Format time in seconds
             elapsed_str = f"{int(elapsed)}s"
+            remaining_str = f"{int(remaining)}s"
 
-            # Calculate percentage
-            progress = min(100, (elapsed / EXPERIMENT_DURATION) * 100)
+            progress = min(100.0, (elapsed / total_duration) * 100.0)
 
-            # Progress bar
             bar_length = 30
-            filled = int(bar_length * progress / 100)
+            filled = int(bar_length * progress / 100.0)
             bar = "█" * filled + "░" * (bar_length - filled)
 
-            # Print progress (overwrite same line)
             print(
-                f"\r[{bar}] {progress:.1f}% | {elapsed_str}/{total_duration_str}",
+                f"\r[{bar}] {progress:5.1f}% | "
+                f"{elapsed_str}/{total_duration_str} | "
+                f"remaining: {remaining_str}",
                 end="",
                 flush=True,
             )
 
             time.sleep(1.0)
 
-        # Print newline when done
-        print()
+        print()  # newline when finished
 
-    def stop(self):
-        # Signal threads to stop
+    # ---------------- run / stop ----------------
+
+    def run(self) -> None:
+        """Run experiment for configured duration, updating live plot if enabled."""
+        if not self.running:
+            return
+
+        logger.info(f"Starting experiment for {EXPERIMENT_DURATION} seconds...")
+
+        start = time.perf_counter()
+        times: List[float] = []
+        traces: List[List[float]] = [[] for _ in ARDUINO_IDS]
+
+        while self.running and (time.perf_counter() - start) < EXPERIMENT_DURATION:
+            if self.live_plotter:
+                now_t = time.perf_counter() - start
+                with self.data_lock:
+                    # Plot first sensor per Arduino
+                    current_measured = [m[0] for m in self.measured]
+
+                times.append(now_t)
+                for i, p in enumerate(current_measured):
+                    traces[i].append(p)
+
+                ax = self.live_plotter["ax"]
+                ax.cla()
+                for i, aid in enumerate(ARDUINO_IDS):
+                    ax.plot(times, traces[i], label=f"pm_{aid}_1")
+                ax.set_title("Measured Pressures (Sensor 1 only)")
+                ax.set_xlabel("Time (s)")
+                ax.set_ylabel("Pressure (psi)")
+                ax.legend()
+                ax.grid(True)
+                plt.pause(0.05)
+            else:
+                time.sleep(0.1)
+
+        logger.info("Experiment duration reached, ramping down...")
+        self.stop()
+
+    def stop(self) -> None:
+        if not self.running:
+            return
+
+        # Signal threads to stop their loops
         self.running = False
 
-        # Give wave thread a moment to exit cleanly
-        time.sleep(0.1)
+        # Ramp down pressures safely
+        try:
+            self.arduinos.ramp_down(RAMPDOWN_DURATION)
+        except Exception as e:
+            logger.error(f"Error during ramp-down: {e}")
 
-        # Gracefully ramp down all pressures
-        self.graceful_rampdown()
+        # Join threads
+        if self.wave_thread:
+            self.wave_thread.join(timeout=1.0)
+        if self.log_thread:
+            self.log_thread.join(timeout=1.0)
+        if self.progress_thread:
+            self.progress_thread.join(timeout=1.0)
 
-        # Stop mocap
         if self.mocap:
             self.mocap.stop()
 
-        # Stop live plotter
-        if self.live_plotter:
-            self.live_plotter.stop()
-
-        # Prompt for description or use AI
+        # ---------------- Description / metadata handling ----------------
         description = None
-        has_api_key = GEMINI_API_KEY and len(GEMINI_API_KEY) > 0
+        has_api_key = bool(GEMINI_API_KEY)
 
         if USE_GEMINI_AUTO_DESCRIPTION and GEMINI_AVAILABLE and has_api_key:
-            # AI is available - generate description and ask for additions
+            # AI is available - generate description and let you extend it
             print("\n" + "=" * 60)
             print("Generating AI description...")
             ai_description = self.logger.generate_ai_description()
-            description = ai_description  # Default to AI description
+            description = ai_description  # default
+            print(ai_description)
 
             try:
                 additional_desc = input(
                     "Enter additional description (optional, press Enter to skip): "
                 ).strip()
                 if additional_desc:
-                    # Combine descriptions
                     description = f"{ai_description}. {additional_desc}"
             except (EOFError, KeyboardInterrupt):
                 print("\nSkipping additional description.")
-                # `description` is already set to ai_description, so we're good
-
+                # description already = ai_description
         else:
-            # No AI available or configured, ask for manual description
+            # No AI, or disabled – ask for manual description
             try:
                 print("\n" + "=" * 60)
-                if not has_api_key and USE_GEMINI_AUTO_DESCRIPTION:
+                if USE_GEMINI_AUTO_DESCRIPTION and not has_api_key:
                     print("AI descriptions enabled, but GEMINI_API_KEY is not set.")
 
                 description = input(
@@ -992,35 +816,40 @@ class Controller:
             except (EOFError, KeyboardInterrupt):
                 description = "Interrupted - no description"
 
+        # Save description + metadata and clean up sockets
         self.logger.stop(description)
-        self.arduino.cleanup()
+        self.arduinos.cleanup()
+        logger.info("Controller stopped and cleaned up.")
 
 
-def main():
-    signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
+# =====================================================================
+# Main entry
+# =====================================================================
 
-    logger.info("=" * 50)
-    logger.info(f"Arduinos: {ARDUINO_IDS}")
-    logger.info(f"Pressures: {TARGET_PRESSURES} psi")
-    logger.info(f"Wave: {WAVE_FUNCTION}")
-    logger.info(f"Mocap: {'ON' if USE_MOCAP and MOCAP_AVAILABLE else 'OFF'}")
-    logger.info(
-        f"AI Descriptions: {'ON' if USE_GEMINI_AUTO_DESCRIPTION and GEMINI_AVAILABLE and GEMINI_API_KEY else 'OFF'}"
-    )
-    logger.info(f"Rampdown: {RAMPDOWN_DURATION}s")
-    logger.info("=" * 50)
-
+def main() -> int:
     controller = Controller()
+
+    # Handle Ctrl+C gracefully
+    def _signal_handler(sig, frame):
+        logger.warning("Ctrl+C received, stopping experiment...")
+        controller.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _signal_handler)
 
     try:
         if not controller.initialize():
             return 1
         controller.run()
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.error(f"Fatal error: {e}")
+        try:
+            controller.stop()
+        except Exception:
+            pass
         return 1
 
-    logger.info("Done")
+    logger.info("Done.")
     return 0
 
 
