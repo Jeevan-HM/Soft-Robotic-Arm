@@ -285,8 +285,8 @@ def main():
 
     # Configuration (modify as needed)
     pump_ids = [3, 6, 7, 8]
-    sensor_id = 7
-    target_pressure = 3.0
+    sensor_id = 3
+    target_pressure = 4.0
 
     test = LeakageTest(pump_ids, sensor_id, target_pressure)
 

@@ -67,14 +67,21 @@ ARDUINO_IDS = [3, 6, 7, 8]
 ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 
 # Experiment settings
-EXPERIMENT_DURATION = 120.0  # seconds
+EXPERIMENT_DURATION = 2500.0  # seconds (Enough for 12 * 205s = 2460s)
 RAMPDOWN_DURATION = 5.0      # seconds to ramp down all pressures to zero
 
 # Desired base pressures (one per Arduino ID, in PSI)
-TARGET_PRESSURES = [3.0 for _ in ARDUINO_IDS]
+TARGET_PRESSURES = [2.0 for _ in ARDUINO_IDS]
 
 # Waveform to run
-WAVE_FUNCTION = "triangular"      # or "circular", "static"
+WAVE_FUNCTION = "sequence"      # "sequence", "axial", "circular", "triangular", "static"
+
+# Sequence Configuration
+SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
+SEQ_SEG1_PRESSURES = [2.0, 3.0]
+SEQ_MAX_PRESSURES = [5.0, 10.0]
+SEQ_WAVE_DURATION = 200.0    # Duration for each wave type in the sequence
+SEQ_COOLDOWN_DURATION = 510.0 # Duration of 2psi hold between waves
 
 # Mocap settings
 USE_MOCAP = True
@@ -359,6 +366,9 @@ class DataLogger:
             # plus mocap time offset
             cols.append("mocap_time_rel_s")
 
+        # Sequence columns
+        cols.extend(["config_wave_type", "config_seg1_psi", "config_max_psi"])
+
         return cols
 
     def _ensure_dataset_and_append(self, data_array: np.ndarray) -> None:
@@ -482,6 +492,9 @@ class DataLogger:
                     
                     col_names.append("mocap_time_rel_s")
 
+                # Sequence columns
+                col_names.extend(["config_wave_type", "config_seg1_psi", "config_max_psi"])
+
                 # Create resizable dataset
                 # Shape: (0, num_columns), Max Shape: (Unlimited, num_columns)
                 num_cols = len(col_names)
@@ -551,6 +564,7 @@ class DataLogger:
         desired: List[float],
         measured: List[List[float]],
         mocap_tuple=None,
+        seq_config=None,
     ) -> None:
         if self.hdf5_path is None or self.start_time_ns is None:
             return
@@ -582,6 +596,18 @@ class DataLogger:
             else:
                 row.extend(float(v) for v in mocap_data)
             row.append(float(mocap_dt_s))
+
+        # Sequence config
+        if seq_config:
+            # wave_type (enum/int), seg1_psi, max_psi
+            # We map wave strings to ints for HDF5: axial=1, circular=2, triangular=3, static=0
+            w_map = {"static": 0, "axial": 1, "circular": 2, "triangular": 3}
+            w_val = w_map.get(seq_config.get("wave", ""), -1)
+            row.append(float(w_val))
+            row.append(float(seq_config.get("seg1", 0.0)))
+            row.append(float(seq_config.get("max_p", 0.0)))
+        else:
+            row.extend([0.0, 0.0, 0.0])
 
         with self.lock:
             self.data_buffer.append(row)
@@ -632,13 +658,23 @@ class DataLogger:
             client = genai.Client(api_key=GEMINI_API_KEY)
             model = "gemini-2.5-flash"
             prompt = f"""
-                Generate a 1-sentence experiment description (max 15 words) for:
+                Generate a 1-sentence experiment description (max 20 words) for:
                 Wave type: {WAVE_FUNCTION}
                 Duration: {int(EXPERIMENT_DURATION)}s
                 Arduinos: {ARDUINO_IDS}
                 Target pressures: {TARGET_PRESSURES} PSI
                 Mocap enabled: {"Yes" if USE_MOCAP and HAS_ZMQ else "No"}
             """
+            if WAVE_FUNCTION == "sequence":
+                prompt += f"""
+                Sequence Details:
+                - Wave Types: {SEQ_WAVE_TYPES}
+                - Seg1 Pressures: {SEQ_SEG1_PRESSURES} PSI
+                - Max Pressures: {SEQ_MAX_PRESSURES} PSI
+                - Wave Duration: {SEQ_WAVE_DURATION}s per wave
+                - Total items: {len(SEQ_WAVE_TYPES) * len(SEQ_SEG1_PRESSURES) * len(SEQ_MAX_PRESSURES)}
+                The experiment runs through all combinations of these parameters.
+                """
             resp = client.models.generate_content(model=model, contents=prompt)
             return resp.text.strip()
         except Exception as e:
@@ -662,6 +698,7 @@ class Controller:
         self.data_lock = threading.Lock()
         self.desired: List[float] = [0.0 for _ in ARDUINO_IDS]
         self.measured: List[List[float]] = [[math.nan] * 4 for _ in ARDUINO_IDS]
+        self.current_seq_config = None
 
         # Threads
         self.wave_thread: Optional[threading.Thread] = None
@@ -716,118 +753,170 @@ class Controller:
 
     # ---------------- wave & logging loops ----------------
 
-    # ---------------- wave & logging loops ----------------
-
     def _wave_loop(self) -> None:
         """
         Generates desired pressures and communicates with Arduinos.
-
-        AXIAL behavior (segments correspond to ARDUINO_IDS order):
-          - Prefill: all 4 segments at 2 psi for a few seconds
-          - Then:
-              seg1 (index 0) -> 0 psi (cut off)
-              seg2 (index 1) -> 2 psi constant
-              seg3 (index 2) -> 0–10 psi sinusoid
-              seg4 (index 3) -> 2 psi constant
+        Supports "sequence" mode to iterate through combinations of parameters.
         """
-        start = time.perf_counter()
-        PREFILL_DURATION = 5.0   # seconds
-        AXIAL_FREQ = 0.1         # Hz for segment 3
-        AXIAL_CENTER = 5.0       # center of 0–10 psi range
-        AXIAL_AMPL = 5.0         # amplitude to get ~0–10 psi swing
+        start_time = time.perf_counter()
+        
+        # If running a sequence, build the playlist
+        playlist = []
+        if WAVE_FUNCTION == "sequence":
+            # Initial Prefill
+            playlist.append({
+                "wave": "cooldown", # Re-use cooldown logic (all 2.0 psi)
+                "seg1": 2.0,
+                "max_p": 0.0,
+                "duration": 5.0 # Initial prefill duration
+            })
+
+            for seg1_p in SEQ_SEG1_PRESSURES:
+                for max_p in SEQ_MAX_PRESSURES:
+                    for wave_type in SEQ_WAVE_TYPES:
+                        playlist.append({
+                            "wave": wave_type,
+                            "seg1": seg1_p,
+                            "max_p": max_p,
+                            "duration": SEQ_WAVE_DURATION
+                        })
+                        # Add cooldown after each wave
+                        playlist.append({
+                            "wave": "cooldown",
+                            "seg1": 2.0,
+                            "max_p": 0.0,
+                            "duration": SEQ_COOLDOWN_DURATION
+                        })
+        else:
+            # Single mode (legacy behavior but using the new loop structure)
+            # We treat it as one infinite item
+            playlist.append({
+                "wave": WAVE_FUNCTION,
+                "seg1": TARGET_PRESSURES[0], # Default from config
+                "max_p": 10.0, # Default max
+                "duration": float('inf')
+            })
+
+        current_item_idx = 0
+        item_start_time = time.perf_counter()
 
         next_wake_time = time.perf_counter()
 
         while self.running:
-            t = time.perf_counter() - start
+            now = time.perf_counter()
+            
+            # Check if we need to advance to next item in sequence
+            current_item = playlist[current_item_idx]
+            time_in_item = now - item_start_time
+            
+            if time_in_item >= current_item["duration"]:
+                current_item_idx += 1
+                if current_item_idx >= len(playlist):
+                    logger.info("Sequence complete.")
+                    break
+                current_item = playlist[current_item_idx]
+                item_start_time = now
+                time_in_item = 0.0
+                logger.info(f"Starting sequence item: {current_item}")
+
+            # Extract parameters for current step
+            w_type = current_item["wave"]
+            seg1_target = current_item["seg1"]
+            p_max = current_item["max_p"]
+            
+            # Store current config for the logger to pick up
+            self.current_seq_config = current_item
+
             desired: List[float] = [0.0] * len(ARDUINO_IDS)
 
-            # Universal Prefill Phase
-            if t < PREFILL_DURATION:
+            # --- Wave Generation Logic ---
+            
+            if w_type == "cooldown":
+                # All segments to 2.0 psi (or whatever seg1 is, usually 2.0 for cooldown)
                 desired = [2.0] * len(ARDUINO_IDS)
                 
-            else:
-                # Adjust time so wave starts at t=0 after prefill
-                wave_t = t - PREFILL_DURATION
+            elif w_type == "axial":
+                # seg1 -> constant
+                # seg2 -> constant 2.0
+                # seg3 -> sinusoid
+                # seg4 -> constant 2.0
                 
-                if WAVE_FUNCTION == "axial":
-                    base = 2.0
-                    # seg1 -> 2 psi constant
-                    # seg2 -> 2 psi constant
-                    # seg3 -> 0–10 psi sinusoid
-                    # seg4 -> 2 psi constant
-                    desired[0] = 2.0             # seg1 constant 2 psi
-                    desired[1] = base             # seg2 constant 2 psi
-                    desired[3] = base             # seg4 constant 2 psi
+                AXIAL_FREQ = 0.1
+                # Scale amplitude to fit 0-p_max
+                # Center = p_max / 2
+                center = p_max / 2.0
+                ampl = p_max / 2.0
+                
+                desired[0] = seg1_target
+                desired[1] = 2.0
+                desired[3] = 2.0
+                
+                val = center + ampl * math.sin(2.0 * math.pi * AXIAL_FREQ * time_in_item)
+                desired[2] = max(0.0, min(p_max, val))
 
-                    # seg3 oscillates from ~0–10 psi
-                    p3 = AXIAL_CENTER + AXIAL_AMPL * math.sin(
-                        2.0 * math.pi * AXIAL_FREQ * wave_t
-                    )
-                    # Clamp within physical limits
-                    p3 = max(0.0, min(10.0, p3))
-                    desired[2] = p3
+            elif w_type == "triangular":
+                desired[0] = seg1_target
+                
+                # Triangular trajectory for segments 2, 3, 4
+                T = 10.0 # Keep 10s period for now
+                t_cycle = time_in_item % T
+                phase_len = T / 3.0
+                
+                idx_seg2 = 1
+                idx_seg3 = 2
+                idx_seg4 = 3
+                
+                if t_cycle < phase_len:
+                    u = t_cycle / phase_len
+                    desired[idx_seg2] = p_max * (1.0 - u)
+                    desired[idx_seg3] = p_max * u
+                    desired[idx_seg4] = 0.0
+                elif t_cycle < 2 * phase_len:
+                    u = (t_cycle - phase_len) / phase_len
+                    desired[idx_seg2] = 0.0
+                    desired[idx_seg3] = p_max * (1.0 - u)
+                    desired[idx_seg4] = p_max * u
+                else:
+                    u = (t_cycle - 2 * phase_len) / phase_len
+                    desired[idx_seg2] = p_max * u
+                    desired[idx_seg3] = 0.0
+                    desired[idx_seg4] = p_max * (1.0 - u)
 
-                elif WAVE_FUNCTION == "triangular":
-                    # Segment 1 constant at 2.0 psi
-                    desired[0] = 2.0
-                    
-                    # Triangular trajectory for segments 2, 3, 4 (indices 1, 2, 3)
-                    # Cycle through: Seg 2 -> Seg 3 -> Seg 4 -> Seg 2
-                    # Period T = 10s (0.01 Hz equivalent)
-                    T = 10.0
-                    t_cycle = wave_t % T
-                    phase_len = T / 3.0
-                    
-                    # Indices for segments 2, 3, 4
-                    idx_seg2 = 1
-                    idx_seg3 = 2
-                    idx_seg4 = 3
-                    
-                    # Max pressure for actuation
-                    p_max = 10.0  # Max allowed pressure
-                    
-                    if t_cycle < phase_len:
-                        # Phase 1: Seg 2 -> Seg 3
-                        # Seg 2 ramps down, Seg 3 ramps up
-                        u = t_cycle / phase_len
-                        desired[idx_seg2] = p_max * (1.0 - u)
-                        desired[idx_seg3] = p_max * u
-                        desired[idx_seg4] = 0.0
-                        
-                    elif t_cycle < 2 * phase_len:
-                        # Phase 2: Seg 3 -> Seg 4
-                        # Seg 3 ramps down, Seg 4 ramps up
-                        u = (t_cycle - phase_len) / phase_len
-                        desired[idx_seg2] = 0.0
-                        desired[idx_seg3] = p_max * (1.0 - u)
-                        desired[idx_seg4] = p_max * u
-                        
-                    else:
-                        # Phase 3: Seg 4 -> Seg 2
-                        # Seg 4 ramps down, Seg 2 ramps up
-                        u = (t_cycle - 2 * phase_len) / phase_len
-                        desired[idx_seg2] = p_max * u
-                        desired[idx_seg3] = 0.0
-                        desired[idx_seg4] = p_max * (1.0 - u)
+            elif w_type == "circular":
+                desired[0] = seg1_target
+                # Others oscillate
+                # We need to map the remaining 3 segments to a circle? 
+                # Or just use the original logic but skip seg 1?
+                # Original logic:
+                # for i, base in enumerate(TARGET_PRESSURES): ...
+                # Let's adapt it to use p_max.
+                
+                # We will oscillate segments 2, 3, 4 between 0 and p_max
+                # Phase shifted by 120 degrees (2pi/3)
+                
+                indices = [1, 2, 3] # Segments 2, 3, 4
+                freq = 0.1
+                
+                for k, idx in enumerate(indices):
+                    phase = (2.0 * math.pi / 3.0) * k
+                    # sin goes -1 to 1. map to 0 to p_max
+                    # val = (sin + 1) / 2 * p_max
+                    val = (math.sin(2.0 * math.pi * freq * time_in_item + phase) + 1.0) / 2.0 * p_max
+                    desired[idx] = val
 
-                elif WAVE_FUNCTION == "circular":
-                    desired = []
-                    for i, base in enumerate(TARGET_PRESSURES):
-                        phase = (2.0 * math.pi / len(TARGET_PRESSURES)) * i
-                        val = base + base * 0.5 * math.sin(2.0 * math.pi * 0.1 * wave_t + phase)
-                        desired.append(max(0.0, val))
-                    
-                    # Force segment 1 to constant 2 psi
-                    desired[0] = 2.0
+            elif w_type == "static":
+                desired = [seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))]
+                # Or maybe user wants all to be target?
+                # For now, let's assume static means "hold seg1, others 0" or "all hold"
+                # Let's stick to: Seg 1 at target, others at 0 for safety unless specified
+                pass
 
-                else:  # "static"
-                    desired = TARGET_PRESSURES.copy()
-
-            measured = self.arduinos.send_all_parallel(desired)
-
+            # Update shared state for logging
             with self.data_lock:
                 self.desired = desired
+
+            measured = self.arduinos.send_all_parallel(desired)
+            with self.data_lock:
                 self.measured = measured
 
             # Drift correction for 100Hz
@@ -966,6 +1055,11 @@ class Controller:
                 plt.pause(0.05)
             else:
                 time.sleep(0.1)
+
+            # Check if wave thread has finished (sequence complete)
+            if self.wave_thread and not self.wave_thread.is_alive():
+                logger.info("Wave sequence finished early.")
+                break
 
         logger.info("Experiment duration reached, ramping down...")
         self.stop()
