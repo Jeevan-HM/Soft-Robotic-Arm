@@ -742,86 +742,87 @@ class Controller:
             t = time.perf_counter() - start
             desired: List[float] = [0.0] * len(ARDUINO_IDS)
 
-            if WAVE_FUNCTION == "axial":
-                base = 2.0
-
-                if t < PREFILL_DURATION:
-                    # Phase 1: all segments at 2 psi
-                    desired = [base] * len(ARDUINO_IDS)
-                else:
-                    # Phase 2:
-                    # seg1 -> 0 psi
-                    # seg2 -> 2 psi
+            # Universal Prefill Phase
+            if t < PREFILL_DURATION:
+                desired = [2.0] * len(ARDUINO_IDS)
+                
+            else:
+                # Adjust time so wave starts at t=0 after prefill
+                wave_t = t - PREFILL_DURATION
+                
+                if WAVE_FUNCTION == "axial":
+                    base = 2.0
+                    # seg1 -> 2 psi constant
+                    # seg2 -> 2 psi constant
                     # seg3 -> 0–10 psi sinusoid
-                    # seg4 -> 2 psi
+                    # seg4 -> 2 psi constant
                     desired[0] = 2.0             # seg1 constant 2 psi
                     desired[1] = base             # seg2 constant 2 psi
                     desired[3] = base             # seg4 constant 2 psi
 
                     # seg3 oscillates from ~0–10 psi
-                    tau = t - PREFILL_DURATION
                     p3 = AXIAL_CENTER + AXIAL_AMPL * math.sin(
-                        2.0 * math.pi * AXIAL_FREQ * tau
+                        2.0 * math.pi * AXIAL_FREQ * wave_t
                     )
                     # Clamp within physical limits
                     p3 = max(0.0, min(10.0, p3))
                     desired[2] = p3
 
-            elif WAVE_FUNCTION == "triangular":
-                # Segment 1 constant at 2.0 psi
-                desired[0] = 2.0
-                
-                # Triangular trajectory for segments 2, 3, 4 (indices 1, 2, 3)
-                # Cycle through: Seg 2 -> Seg 3 -> Seg 4 -> Seg 2
-                # Period T = 10s (0.1 Hz equivalent)
-                T = 10.0
-                t_cycle = t % T
-                phase_len = T / 3.0
-                
-                # Indices for segments 2, 3, 4
-                idx_seg2 = 1
-                idx_seg3 = 2
-                idx_seg4 = 3
-                
-                # Max pressure for actuation
-                p_max = 10.0  # Max allowed pressure
-                
-                if t_cycle < phase_len:
-                    # Phase 1: Seg 2 -> Seg 3
-                    # Seg 2 ramps down, Seg 3 ramps up
-                    u = t_cycle / phase_len
-                    desired[idx_seg2] = p_max * (1.0 - u)
-                    desired[idx_seg3] = p_max * u
-                    desired[idx_seg4] = 0.0
+                elif WAVE_FUNCTION == "triangular":
+                    # Segment 1 constant at 2.0 psi
+                    desired[0] = 2.0
                     
-                elif t_cycle < 2 * phase_len:
-                    # Phase 2: Seg 3 -> Seg 4
-                    # Seg 3 ramps down, Seg 4 ramps up
-                    u = (t_cycle - phase_len) / phase_len
-                    desired[idx_seg2] = 0.0
-                    desired[idx_seg3] = p_max * (1.0 - u)
-                    desired[idx_seg4] = p_max * u
+                    # Triangular trajectory for segments 2, 3, 4 (indices 1, 2, 3)
+                    # Cycle through: Seg 2 -> Seg 3 -> Seg 4 -> Seg 2
+                    # Period T = 10s (0.01 Hz equivalent)
+                    T = 10.0
+                    t_cycle = wave_t % T
+                    phase_len = T / 3.0
                     
-                else:
-                    # Phase 3: Seg 4 -> Seg 2
-                    # Seg 4 ramps down, Seg 2 ramps up
-                    u = (t_cycle - 2 * phase_len) / phase_len
-                    desired[idx_seg2] = p_max * u
-                    desired[idx_seg3] = 0.0
-                    desired[idx_seg4] = p_max * (1.0 - u)
+                    # Indices for segments 2, 3, 4
+                    idx_seg2 = 1
+                    idx_seg3 = 2
+                    idx_seg4 = 3
+                    
+                    # Max pressure for actuation
+                    p_max = 10.0  # Max allowed pressure
+                    
+                    if t_cycle < phase_len:
+                        # Phase 1: Seg 2 -> Seg 3
+                        # Seg 2 ramps down, Seg 3 ramps up
+                        u = t_cycle / phase_len
+                        desired[idx_seg2] = p_max * (1.0 - u)
+                        desired[idx_seg3] = p_max * u
+                        desired[idx_seg4] = 0.0
+                        
+                    elif t_cycle < 2 * phase_len:
+                        # Phase 2: Seg 3 -> Seg 4
+                        # Seg 3 ramps down, Seg 4 ramps up
+                        u = (t_cycle - phase_len) / phase_len
+                        desired[idx_seg2] = 0.0
+                        desired[idx_seg3] = p_max * (1.0 - u)
+                        desired[idx_seg4] = p_max * u
+                        
+                    else:
+                        # Phase 3: Seg 4 -> Seg 2
+                        # Seg 4 ramps down, Seg 2 ramps up
+                        u = (t_cycle - 2 * phase_len) / phase_len
+                        desired[idx_seg2] = p_max * u
+                        desired[idx_seg3] = 0.0
+                        desired[idx_seg4] = p_max * (1.0 - u)
 
-            elif WAVE_FUNCTION == "circular":
-                desired = []
-                for i, base in enumerate(TARGET_PRESSURES):
-                    phase = (2.0 * math.pi / len(TARGET_PRESSURES)) * i
-                    val = base + base * 0.5 * math.sin(2.0 * math.pi * 0.1 * t + phase)
-                    desired.append(max(0.0, val))
-                
-                # Force segment 1 to constant 2 psi
-                desired[0] = 2.0
+                elif WAVE_FUNCTION == "circular":
+                    desired = []
+                    for i, base in enumerate(TARGET_PRESSURES):
+                        phase = (2.0 * math.pi / len(TARGET_PRESSURES)) * i
+                        val = base + base * 0.5 * math.sin(2.0 * math.pi * 0.1 * wave_t + phase)
+                        desired.append(max(0.0, val))
+                    
+                    # Force segment 1 to constant 2 psi
+                    desired[0] = 2.0
 
-            else:  # "static"
-                desired = TARGET_PRESSURES.copy()
+                else:  # "static"
+                    desired = TARGET_PRESSURES.copy()
 
             measured = self.arduinos.send_all_parallel(desired)
 
@@ -1010,7 +1011,7 @@ class Controller:
             print("Generating AI description...")
             ai_description = self.logger.generate_ai_description()
             description = ai_description  # Default to AI description
-
+            print("Generated Description: ", ai_description)
             try:
                 additional_desc = input(
                     "Enter additional description (optional, press Enter to skip): "
