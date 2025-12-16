@@ -6,6 +6,7 @@ Tests soft robot pouches for leakage by applying pressure and monitoring sensor 
 
 import logging
 import socket
+import signal
 import struct
 import sys
 import threading
@@ -42,8 +43,10 @@ class ArduinoConnection:
             server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server.bind((PC_ADDRESS, self.port))
             server.listen(1)
+            server.settimeout(5.0)  # Timeout for accepting connection
             logger.info(f"Waiting for Arduino {self.arduino_id} on port {self.port}...")
             self.socket, addr = server.accept()
+            self.socket.settimeout(2.0)  # Add 2-second timeout
             logger.info(f"Arduino {self.arduino_id} connected from {addr}")
             server.close()
             return True
@@ -287,6 +290,13 @@ def main():
 
     test = LeakageTest(pump_ids, sensor_id, target_pressure)
 
+    def signal_handler(sig, frame):
+        logger.info("\nCtrl+C pressed. Stopping...")
+        test.stop()
+        plt.close("all")
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     try:
         if not test.connect():
             logger.error("Connection failed. Exiting.")
@@ -296,6 +306,8 @@ def main():
         plotter = RealtimePlotter(test)
         plotter.show()
 
+    except KeyboardInterrupt:
+        pass  # Handled by signal handler or exit
     except Exception as e:
         logger.error(f"Critical error: {e}")
         return 1
