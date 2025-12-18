@@ -81,10 +81,73 @@ SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
 SEQ_SEG1_PRESSURES = [2.0, 3.0]
 SEQ_MAX_PRESSURES = [5.0, 10.0]
 SEQ_WAVE_DURATION = 200.0    # Duration for each wave type in the sequence
-SEQ_COOLDOWN_DURATION = 510.0 # Duration of 2psi hold between waves
+SEQ_COOLDOWN_DURATION = 10.0 # Duration of 2psi hold between waves
+SEQ_SEG1_REFILL_PERIOD = 100.0 # Target period for refilling Segment 1
 
 # Mocap settings
 USE_MOCAP = True
+MOCAP_PORT = "tcp://127.0.0.1:3885"
+MOCAP_DATA_SIZE = 21  # 3 rigid bodies * 7 values each
+
+# Plotting
+USE_LIVE_PLOT = True and HAS_MPL
+ARDUINOS_NO_PLOT = [6]
+
+# Gemini API settings
+USE_GEMINI_AUTO_DESCRIPTION = True
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# =====================================================================
+# Logging setup
+# =====================================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# =====================================================================
+# Arduino Manager
+# =====================================================================
+
+class ArduinoManager:
+    """
+    Manages TCP connections to multiple Arduinos.
+    PC -> Arduino: float32 desired pressure (psi)
+    Arduino -> PC: 4 * int16 ADC counts from ADS1115 (big endian)
+    """
+
+    def __init__(self) -> None:
+        self.server_sockets: List[socket.socket] = []
+        self.client_sockets: List[socket.socket] = []
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=len(ARDUINO_IDS)
+        )
+
+    def connect(self) -> bool:
+        """Bind/listen on all configured ports and accept Arduino connections."""
+        for arduino_id in ARDUINO_IDS:
+             # Implementation hidden
+             pass
+        return True # Mocked
+
+    # Note: connect implemented above is just a snippet context, not replacing full class.
+    # The tool will replace the TARGET block.
+    # Wait, I need to target the block carefully.
+    # Let me just replace the Constants section and then the loop logic separately? No, better to do one replace or carefully targeted.
+    # I will replace the constants block first.
+
+    # Oops, tool arguments require specific TargetContent.
+    # I will replace the Constants section.
+    pass
+
+# STOP. I should use `replace_file_content` just for the constants first, then another call for the loop.
+# Or better, just one call if they are close? They are far apart (Line 80 vs 760).
+# I will make TWO calls.
+# CALL 1: Constants
+
 MOCAP_PORT = "tcp://127.0.0.1:3885"
 MOCAP_DATA_SIZE = 21  # 3 rigid bodies * 7 values each
 
@@ -763,6 +826,10 @@ class Controller:
         # If running a sequence, build the playlist
         playlist = []
         if WAVE_FUNCTION == "sequence":
+            # Track time for refill logic
+            simulated_time = 0.0
+            last_refill_time = 0.0 # Assumes we start full or fill at start
+
             # Initial Prefill
             playlist.append({
                 "wave": "cooldown", # Re-use cooldown logic (all 2.0 psi)
@@ -770,23 +837,46 @@ class Controller:
                 "max_p": 0.0,
                 "duration": 5.0 # Initial prefill duration
             })
+            simulated_time += 5.0
+            last_refill_time = simulated_time # Reset refill timer after initial fill
 
             for seg1_p in SEQ_SEG1_PRESSURES:
                 for max_p in SEQ_MAX_PRESSURES:
                     for wave_type in SEQ_WAVE_TYPES:
+                        # Add the wave
                         playlist.append({
                             "wave": wave_type,
                             "seg1": seg1_p,
                             "max_p": max_p,
                             "duration": SEQ_WAVE_DURATION
                         })
+                        simulated_time += SEQ_WAVE_DURATION
+
+                        # Check if we should refill during this cooldown
+                        # Logic: Refill if we are close to or past the target period since last refill.
+                        # Using threshold: Period - half_wave_duration to find "closest"
+                        threshold = SEQ_SEG1_REFILL_PERIOD - (SEQ_WAVE_DURATION / 2.0)
+                        
+                        time_since_last = simulated_time - last_refill_time
+                        should_refill = time_since_last >= threshold
+
+                        if should_refill:
+                            cooldown_seg1 = seg1_p
+                            # We will refill now.
+                            # Note: The refill happens *during* this cooldown.
+                            # So the time of refill is roughly now (start of cooldown).
+                            last_refill_time = simulated_time
+                        else:
+                            cooldown_seg1 = 0.0 # Do not refill, keep it off/low
+
                         # Add cooldown after each wave
                         playlist.append({
                             "wave": "cooldown",
-                            "seg1": 2.0,
+                            "seg1": cooldown_seg1,  # Dynamic refill target
                             "max_p": 0.0,
                             "duration": SEQ_COOLDOWN_DURATION
                         })
+                        simulated_time += SEQ_COOLDOWN_DURATION
         else:
             # Single mode (legacy behavior but using the new loop structure)
             # We treat it as one infinite item
@@ -833,10 +923,16 @@ class Controller:
             
             if w_type == "cooldown":
                 # All segments to 2.0 psi (or whatever seg1 is, usually 2.0 for cooldown)
+                # MODIFICATION: Segment 1 goes to its target pressure during cooldown.
+                # Others stay at 2.0 (default baseline) or 0? 
+                # Existing comment said "All segments to 2.0 psi".
+                # Let's keep others at 2.0 if that was the intent, or 0?
+                # "Segment 1 target psi should be provided"
                 desired = [2.0] * len(ARDUINO_IDS)
+                desired[0] = seg1_target
                 
             elif w_type == "axial":
-                # seg1 -> constant
+                # seg1 -> 0.0 (OFF during experiment)
                 # seg2 -> constant 2.0
                 # seg3 -> sinusoid
                 # seg4 -> constant 2.0
@@ -847,7 +943,7 @@ class Controller:
                 center = p_max / 2.0
                 ampl = p_max / 2.0
                 
-                desired[0] = seg1_target
+                desired[0] = 0.0  # Turn OFF Segment 1 during wave
                 desired[1] = 2.0
                 desired[3] = 2.0
                 
@@ -855,7 +951,7 @@ class Controller:
                 desired[2] = max(0.0, min(p_max, val))
 
             elif w_type == "triangular":
-                desired[0] = seg1_target
+                desired[0] = 0.0  # Turn OFF Segment 1 during wave
                 
                 # Triangular trajectory for segments 2, 3, 4
                 T = 10.0 # Keep 10s period for now
@@ -883,7 +979,7 @@ class Controller:
                     desired[idx_seg4] = p_max * (1.0 - u)
 
             elif w_type == "circular":
-                desired[0] = seg1_target
+                desired[0] = 0.0  # Turn OFF Segment 1 during wave
                 # Others oscillate
                 # We need to map the remaining 3 segments to a circle? 
                 # Or just use the original logic but skip seg 1?
