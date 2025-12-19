@@ -83,6 +83,7 @@ SEQ_MAX_PRESSURES = [5.0, 10.0]
 SEQ_WAVE_DURATION = 200.0    # Duration for each wave type in the sequence
 SEQ_COOLDOWN_DURATION = 10.0 # Duration of 2psi hold between waves
 SEQ_SEG1_REFILL_PERIOD = 100.0 # Target period for refilling Segment 1
+SEQ_REFILL_ACTION_DURATION = 5.0 # Duration of the refill pause/interruption
 
 # Mocap settings
 USE_MOCAP = True
@@ -828,69 +829,118 @@ class Controller:
         if WAVE_FUNCTION == "sequence":
             # Track time for refill logic
             simulated_time = 0.0
-            last_refill_time = 0.0 # Assumes we start full or fill at start
+            next_refill_time = SEQ_SEG1_REFILL_PERIOD # Target time for next refill
+
+            def add_wave_item(wave_type, seg1_p, max_p, duration):
+                nonlocal simulated_time, next_refill_time
+                
+                # Check if this item crosses the next refill time
+                # We need to loop because a very long wave might need multiple refills (unlikely but possible)
+                remaining_duration = duration
+                current_wave_offset = 0.0
+                
+                while remaining_duration > 0:
+                    time_until_refill = next_refill_time - simulated_time
+                    
+                    if time_until_refill <= 0 or time_until_refill > remaining_duration:
+                        # Case 1: Refill is overdue (handle immediately after this block? No, if overdue, maybe we should have refilled. 
+                        # But let's assume if it's <=0 we just refill now? Or just proceed if it's already done?
+                        # Let's assume standard case: refill is in the future.
+                        # If time_until_refill > remaining_duration, we fit the whole item.
+                        
+                        playlist.append({
+                            "wave": wave_type,
+                            "seg1": seg1_p,
+                            "max_p": max_p,
+                            "duration": remaining_duration,
+                            "offset": current_wave_offset
+                        })
+                        simulated_time += remaining_duration
+                        remaining_duration = 0
+                    else:
+                        # Case 2: Refill happens during this item
+                        # Split: Run up to refill time
+                        chunk_dur = time_until_refill
+                        
+                        # Add first chunk
+                        if chunk_dur > 0.1: # Avoid tiny chunks
+                            playlist.append({
+                                "wave": wave_type,
+                                "seg1": seg1_p,
+                                "max_p": max_p,
+                                "duration": chunk_dur,
+                                "offset": current_wave_offset
+                            })
+                            simulated_time += chunk_dur
+                            current_wave_offset += chunk_dur
+                            remaining_duration -= chunk_dur
+                        
+                        # Add Refill Pause
+                        playlist.append({
+                            "wave": "refill_pause",
+                            "seg1": seg1_p,  # Use target pressure
+                            "max_p": 0.0,
+                            "duration": SEQ_REFILL_ACTION_DURATION,
+                            "offset": 0.0
+                        })
+                        simulated_time += SEQ_REFILL_ACTION_DURATION
+                        next_refill_time += SEQ_SEG1_REFILL_PERIOD
+
 
             # Initial Prefill
             playlist.append({
                 "wave": "cooldown", # Re-use cooldown logic (all 2.0 psi)
                 "seg1": 2.0,
                 "max_p": 0.0,
-                "duration": 5.0 # Initial prefill duration
+                "duration": 5.0, # Initial prefill duration
+                "offset": 0.0
             })
             simulated_time += 5.0
-            last_refill_time = simulated_time # Reset refill timer after initial fill
+            # Reset next refill target from now
+            next_refill_time = simulated_time + SEQ_SEG1_REFILL_PERIOD
 
             for seg1_p in SEQ_SEG1_PRESSURES:
                 for max_p in SEQ_MAX_PRESSURES:
                     for wave_type in SEQ_WAVE_TYPES:
-                        # Add the wave
-                        playlist.append({
-                            "wave": wave_type,
-                            "seg1": seg1_p,
-                            "max_p": max_p,
-                            "duration": SEQ_WAVE_DURATION
-                        })
-                        simulated_time += SEQ_WAVE_DURATION
-
-                        # Check if we should refill during this cooldown
-                        # Logic: Refill if we are close to or past the target period since last refill.
-                        # Using threshold: Period - half_wave_duration to find "closest"
-                        threshold = SEQ_SEG1_REFILL_PERIOD - (SEQ_WAVE_DURATION / 2.0)
-                        
-                        time_since_last = simulated_time - last_refill_time
-                        should_refill = time_since_last >= threshold
-
-                        if should_refill:
-                            cooldown_seg1 = seg1_p
-                            # We will refill now.
-                            # Note: The refill happens *during* this cooldown.
-                            # So the time of refill is roughly now (start of cooldown).
-                            last_refill_time = simulated_time
-                        else:
-                            cooldown_seg1 = 0.0 # Do not refill, keep it off/low
+                        # Add wave with split logic
+                        add_wave_item(wave_type, seg1_p, max_p, SEQ_WAVE_DURATION)
 
                         # Add cooldown after each wave
-                        playlist.append({
-                            "wave": "cooldown",
-                            "seg1": cooldown_seg1,  # Dynamic refill target
-                            "max_p": 0.0,
-                            "duration": SEQ_COOLDOWN_DURATION
-                        })
-                        simulated_time += SEQ_COOLDOWN_DURATION
+                        # Cooldowns are also subject to being split? 
+                        # Ideally cooldowns are short (10s), refill period is long (100s).
+                        # Let's just add cooldown as an atomic block for simplicity unless it's huge.
+                        # But wait, if we are in cooldown and refill is due?
+                        # We can just apply the refill check here too?
+                        # Simplification: Just add cooldown. If refill period hits during cooldown, 
+                        # we can let it slide to the start of next wave or just handle it if we use add_wave_item 
+                        # for cooldowns too? 
+                        # Let's use add_wave_item for cooldowns to be consistent!
+                        # But cooldowns act differently (seg1 behavior).
+                        
+                        # Wait, user wants "pause experiment and start pumping". 
+                        # So during cooldown, we are ALREADY pumping if we want?
+                        # The "Dynamic Refill Logic" from previous step on cooldowns is now replaced by this interrupt logic.
+                        # So Cooldowns should just be "OFF" normally.
+                        
+                        add_wave_item("cooldown", 0.0, 0.0, SEQ_COOLDOWN_DURATION)
+
         else:
             # Single mode (legacy behavior but using the new loop structure)
-            # We treat it as one infinite item
             playlist.append({
                 "wave": WAVE_FUNCTION,
                 "seg1": TARGET_PRESSURES[0], # Default from config
                 "max_p": 10.0, # Default max
-                "duration": float('inf')
+                "duration": float('inf'),
+                "offset": 0.0
             })
 
         current_item_idx = 0
         item_start_time = time.perf_counter()
 
         next_wake_time = time.perf_counter()
+
+        # Track last pressures for holding during pauses
+        last_wave_pressures = [0.0] * len(ARDUINO_IDS)
 
         while self.running:
             now = time.perf_counter()
@@ -913,23 +963,29 @@ class Controller:
             w_type = current_item["wave"]
             seg1_target = current_item["seg1"]
             p_max = current_item["max_p"]
+            time_offset = current_item.get("offset", 0.0)
             
-            # Store current config for the logger to pick up
+            effective_time = time_in_item + time_offset # For phase continuity
+
+            # Store current config for the logger
             self.current_seq_config = current_item
 
             desired: List[float] = [0.0] * len(ARDUINO_IDS)
 
             # --- Wave Generation Logic ---
             
-            if w_type == "cooldown":
-                # All segments to 2.0 psi (or whatever seg1 is, usually 2.0 for cooldown)
-                # MODIFICATION: Segment 1 goes to its target pressure during cooldown.
-                # Others stay at 2.0 (default baseline) or 0? 
-                # Existing comment said "All segments to 2.0 psi".
-                # Let's keep others at 2.0 if that was the intent, or 0?
-                # "Segment 1 target psi should be provided"
+            if w_type == "refill_pause":
+                # Pause experiment, refill segment 1
+                desired[0] = seg1_target # Refill
+                # Hold others at last known value
+                for i in range(1, len(ARDUINO_IDS)):
+                    desired[i] = last_wave_pressures[i]
+
+            elif w_type == "cooldown":
+                # Regular cooldown, Seg 1 is OFF (0.0) unless it was the split entry?
+                # In add_wave_item call above, we passed 0.0 for seg1.
                 desired = [2.0] * len(ARDUINO_IDS)
-                desired[0] = seg1_target
+                desired[0] = seg1_target # This will be 0.0 if we passed 0.0
                 
             elif w_type == "axial":
                 # seg1 -> 0.0 (OFF during experiment)
@@ -938,8 +994,6 @@ class Controller:
                 # seg4 -> constant 2.0
                 
                 AXIAL_FREQ = 0.1
-                # Scale amplitude to fit 0-p_max
-                # Center = p_max / 2
                 center = p_max / 2.0
                 ampl = p_max / 2.0
                 
@@ -947,15 +1001,15 @@ class Controller:
                 desired[1] = 2.0
                 desired[3] = 2.0
                 
-                val = center + ampl * math.sin(2.0 * math.pi * AXIAL_FREQ * time_in_item)
+                val = center + ampl * math.sin(2.0 * math.pi * AXIAL_FREQ * effective_time)
                 desired[2] = max(0.0, min(p_max, val))
 
             elif w_type == "triangular":
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
                 
                 # Triangular trajectory for segments 2, 3, 4
-                T = 10.0 # Keep 10s period for now
-                t_cycle = time_in_item % T
+                T = 10.0 
+                t_cycle = effective_time % T
                 phase_len = T / 3.0
                 
                 idx_seg2 = 1
@@ -980,32 +1034,22 @@ class Controller:
 
             elif w_type == "circular":
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
-                # Others oscillate
-                # We need to map the remaining 3 segments to a circle? 
-                # Or just use the original logic but skip seg 1?
-                # Original logic:
-                # for i, base in enumerate(TARGET_PRESSURES): ...
-                # Let's adapt it to use p_max.
-                
-                # We will oscillate segments 2, 3, 4 between 0 and p_max
-                # Phase shifted by 120 degrees (2pi/3)
                 
                 indices = [1, 2, 3] # Segments 2, 3, 4
                 freq = 0.1
                 
                 for k, idx in enumerate(indices):
                     phase = (2.0 * math.pi / 3.0) * k
-                    # sin goes -1 to 1. map to 0 to p_max
-                    # val = (sin + 1) / 2 * p_max
-                    val = (math.sin(2.0 * math.pi * freq * time_in_item + phase) + 1.0) / 2.0 * p_max
+                    val = (math.sin(2.0 * math.pi * freq * effective_time + phase) + 1.0) / 2.0 * p_max
                     desired[idx] = val
 
             elif w_type == "static":
                 desired = [seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))]
-                # Or maybe user wants all to be target?
-                # For now, let's assume static means "hold seg1, others 0" or "all hold"
-                # Let's stick to: Seg 1 at target, others at 0 for safety unless specified
                 pass
+            
+            # Save state for holding pressure during pause
+            if w_type in ["axial", "triangular", "circular", "static"]:
+                last_wave_pressures = list(desired)
 
             # Update shared state for logging
             with self.data_lock:
