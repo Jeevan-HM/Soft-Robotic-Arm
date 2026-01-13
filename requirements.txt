@@ -28,7 +28,7 @@ blinker==1.4
 bloom==0.13.0
 breezy==3.2.1
 Brlapi==0.8.3
-Brotli==1.0.9
+Brotli==1.2.0
 builtin-interfaces==1.2.2
 catkin-pkg==1.1.0
 catkin-pkg-modules==1.1.0
