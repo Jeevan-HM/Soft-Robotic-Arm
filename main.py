@@ -8,6 +8,7 @@ Optional: For AI auto-descriptions, add to .env file:
   GEMINI_API_KEY=your-api-key-here
 """
 
+import concurrent.futures
 import datetime
 import logging
 import math
@@ -18,7 +19,6 @@ import struct
 import sys
 import threading
 import time
-import concurrent.futures
 from typing import List, Optional
 
 import h5py
@@ -67,23 +67,31 @@ ARDUINO_IDS = [3, 6, 7, 8]
 ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 
 # Experiment settings
-EXPERIMENT_DURATION = 2500.0  # seconds (Enough for 12 * 205s = 2460s)
-RAMPDOWN_DURATION = 5.0      # seconds to ramp down all pressures to zero
+# Experiment settings
+EXPERIMENT_DURATION = 0.0  # Will be calculated below
+RAMPDOWN_DURATION = 5.0  # seconds to ramp down all pressures to zero
 
 # Desired base pressures (one per Arduino ID, in PSI)
 TARGET_PRESSURES = [2.0 for _ in ARDUINO_IDS]
 
 # Waveform to run
-WAVE_FUNCTION = "sequence"      # "sequence", "axial", "circular", "triangular", "static"
+WAVE_FUNCTION = "sequence"  # "sequence", "axial", "circular", "triangular", "static"
 
 # Sequence Configuration
 SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
 SEQ_SEG1_PRESSURES = [2.0, 3.0]
 SEQ_MAX_PRESSURES = [5.0, 10.0]
-SEQ_WAVE_DURATION = 200.0    # Duration for each wave type in the sequence
-SEQ_COOLDOWN_DURATION = 10.0 # Duration of 2psi hold between waves
-SEQ_SEG1_REFILL_PERIOD = 100.0 # Target period for refilling Segment 1
-SEQ_REFILL_ACTION_DURATION = 5.0 # Duration of the refill pause/interruption
+SEQ_WAVE_DURATION = 200.0  # Duration for each wave type in the sequence
+SEQ_COOLDOWN_DURATION = 10.0  # Duration of 2psi hold between waves
+SEQ_SEG1_REFILL_PERIOD = 100.0  # Target period for refilling Segment 1
+SEQ_REFILL_ACTION_DURATION = 5.0  # Duration of the refill pause/interruption
+
+# Calculate Experiment Duration
+_num_items = len(SEQ_WAVE_TYPES) * len(SEQ_SEG1_PRESSURES) * len(SEQ_MAX_PRESSURES)
+_raw_duration = 5.0 + _num_items * (SEQ_WAVE_DURATION + SEQ_COOLDOWN_DURATION)
+# Add buffer for refills (approx estimate: 1 refill every 100s taking 5s -> +5%)
+# We add 20% buffer to be safe
+EXPERIMENT_DURATION = _raw_duration * 1.2
 
 # Mocap settings
 USE_MOCAP = True
@@ -92,7 +100,7 @@ MOCAP_DATA_SIZE = 21  # 3 rigid bodies * 7 values each
 
 # Plotting
 USE_LIVE_PLOT = True and HAS_MPL
-ARDUINOS_NO_PLOT = [6]
+ARDUINOS_NO_PLOT = [6, 8]
 
 # Gemini API settings
 USE_GEMINI_AUTO_DESCRIPTION = True
@@ -113,6 +121,7 @@ logger = logging.getLogger(__name__)
 # Arduino Manager
 # =====================================================================
 
+
 class ArduinoManager:
     """
     Manages TCP connections to multiple Arduinos.
@@ -130,9 +139,9 @@ class ArduinoManager:
     def connect(self) -> bool:
         """Bind/listen on all configured ports and accept Arduino connections."""
         for arduino_id in ARDUINO_IDS:
-             # Implementation hidden
-             pass
-        return True # Mocked
+            # Implementation hidden
+            pass
+        return True  # Mocked
 
     # Note: connect implemented above is just a snippet context, not replacing full class.
     # The tool will replace the TARGET block.
@@ -143,6 +152,7 @@ class ArduinoManager:
     # Oops, tool arguments require specific TargetContent.
     # I will replace the Constants section.
     pass
+
 
 # STOP. I should use `replace_file_content` just for the constants first, then another call for the loop.
 # Or better, just one call if they are close? They are far apart (Line 80 vs 760).
@@ -174,6 +184,7 @@ logger = logging.getLogger(__name__)
 # =====================================================================
 # Arduino Manager
 # =====================================================================
+
 
 class ArduinoManager:
     """
@@ -306,6 +317,7 @@ class ArduinoManager:
 # Mocap Manager
 # =====================================================================
 
+
 class MocapManager:
     """ZeroMQ subscriber for mocap data."""
 
@@ -372,6 +384,7 @@ class MocapManager:
 # =====================================================================
 # Data Logger
 # =====================================================================
+
 
 class DataLogger:
     """
@@ -493,7 +506,7 @@ class DataLogger:
                 os.remove(self.temp_path)
             except OSError:
                 pass
-        
+
         # We log to the temp path
         self.hdf5_path = self.temp_path
 
@@ -553,11 +566,13 @@ class DataLogger:
                         col_names.append(f"mocap_{body_num}_qy")
                         col_names.append(f"mocap_{body_num}_qz")
                         col_names.append(f"mocap_{body_num}_qw")
-                    
+
                     col_names.append("mocap_time_rel_s")
 
                 # Sequence columns
-                col_names.extend(["config_wave_type", "config_seg1_psi", "config_max_psi"])
+                col_names.extend(
+                    ["config_wave_type", "config_seg1_psi", "config_max_psi"]
+                )
 
                 # Create resizable dataset
                 # Shape: (0, num_columns), Max Shape: (Unlimited, num_columns)
@@ -750,12 +765,17 @@ class DataLogger:
 # Controller
 # =====================================================================
 
+
 class Controller:
-    def __init__(self, refill_mode: str = "periodic", refill_period: float = SEQ_SEG1_REFILL_PERIOD) -> None:
+    def __init__(
+        self,
+        refill_mode: str = "periodic",
+        refill_period: float = SEQ_SEG1_REFILL_PERIOD,
+    ) -> None:
         self.arduinos = ArduinoManager()
         self.logger = DataLogger()
         self.mocap: Optional[MocapManager] = None
-        
+
         self.refill_mode = refill_mode
         self.refill_period = refill_period
 
@@ -780,15 +800,23 @@ class Controller:
     # ---------------- init / teardown ----------------
 
     def _setup_plot(self) -> None:
-        fig, axes = plt.subplots(4, 1, sharex=True, figsize=(8, 10))
+        fig, axes = plt.subplots(3, 1, figsize=(8, 12))
         self.live_plotter = {"fig": fig, "axes": axes}
-        
-        for i, ax in enumerate(axes):
-            ax.set_ylabel(f"Sensor {i+1} (psi)")
+
+        axes[0].set_ylabel("Pressure (PSI)")
+        axes[0].set_title("Segment 1 (Pouches 1-5)")
+
+        axes[1].set_ylabel("Pressure (PSI)")
+        axes[1].set_title("Segments 2-4")
+
+        axes[2].set_xlabel("X Position")
+        axes[2].set_ylabel("Z Position")
+        axes[2].set_title("Robot Trajectory (X-Z)")
+
+        for ax in axes:
             ax.grid(True)
-            
-        axes[-1].set_xlabel("Time (s)")
-        fig.suptitle("Measured Pressures")
+
+        fig.tight_layout()
 
     def initialize(self) -> bool:
         logger.info("Connecting Arduinos...")
@@ -826,87 +854,101 @@ class Controller:
         Supports "sequence" mode to iterate through combinations of parameters.
         """
         start_time = time.perf_counter()
-        
+
         # If running a sequence, build the playlist
         playlist = []
         if WAVE_FUNCTION == "sequence":
             # Track time for refill logic
             simulated_time = 0.0
-            next_refill_time = self.refill_period # Target time for next refill (USER CONFIG)
+            next_refill_time = (
+                self.refill_period
+            )  # Target time for next refill (USER CONFIG)
 
             def add_wave_item(wave_type, seg1_p, max_p, duration):
                 nonlocal simulated_time, next_refill_time
-                
+
                 # Check if this item crosses the next refill time
                 # We need to loop because a very long wave might need multiple refills (unlikely but possible)
                 remaining_duration = duration
                 current_wave_offset = 0.0
-                
+
                 # If mode is end_of_wave, we do NOT split. refill_period is inf anyway.
                 # If periodic, we split.
-                
+
                 while remaining_duration > 0:
                     time_until_refill = next_refill_time - simulated_time
-                    
+
                     if self.refill_mode == "periodic":
-                        if time_until_refill <= 0 or time_until_refill > remaining_duration:
+                        if (
+                            time_until_refill <= 0
+                            or time_until_refill > remaining_duration
+                        ):
                             # Case 1: Refill is far off or we are skipping it (if inf)
-                             playlist.append({
+                            playlist.append(
+                                {
+                                    "wave": wave_type,
+                                    "seg1": seg1_p,
+                                    "max_p": max_p,
+                                    "duration": remaining_duration,
+                                    "offset": current_wave_offset,
+                                }
+                            )
+                            simulated_time += remaining_duration
+                            remaining_duration = 0
+                        else:
+                            # Case 2: Refill happens during this item
+                            chunk_dur = time_until_refill
+
+                            if chunk_dur > 0.1:
+                                playlist.append(
+                                    {
+                                        "wave": wave_type,
+                                        "seg1": seg1_p,
+                                        "max_p": max_p,
+                                        "duration": chunk_dur,
+                                        "offset": current_wave_offset,
+                                    }
+                                )
+                                simulated_time += chunk_dur
+                                current_wave_offset += chunk_dur
+                                remaining_duration -= chunk_dur
+
+                            # Add Refill Pause
+                            playlist.append(
+                                {
+                                    "wave": "refill_pause",
+                                    "seg1": seg1_p,
+                                    "max_p": 0.0,
+                                    "duration": SEQ_REFILL_ACTION_DURATION,
+                                    "offset": 0.0,
+                                }
+                            )
+                            simulated_time += SEQ_REFILL_ACTION_DURATION
+                            next_refill_time += self.refill_period
+                    else:  # refill_mode == "end_of_wave" OR "constant_2psi"
+                        # No splitting
+                        playlist.append(
+                            {
                                 "wave": wave_type,
                                 "seg1": seg1_p,
                                 "max_p": max_p,
                                 "duration": remaining_duration,
-                                "offset": current_wave_offset
-                            })
-                             simulated_time += remaining_duration
-                             remaining_duration = 0
-                        else:
-                            # Case 2: Refill happens during this item
-                            chunk_dur = time_until_refill
-                            
-                            if chunk_dur > 0.1: 
-                                playlist.append({
-                                    "wave": wave_type,
-                                    "seg1": seg1_p,
-                                    "max_p": max_p,
-                                    "duration": chunk_dur,
-                                    "offset": current_wave_offset
-                                })
-                                simulated_time += chunk_dur
-                                current_wave_offset += chunk_dur
-                                remaining_duration -= chunk_dur
-                            
-                            # Add Refill Pause
-                            playlist.append({
-                                "wave": "refill_pause",
-                                "seg1": seg1_p,  
-                                "max_p": 0.0,
-                                "duration": SEQ_REFILL_ACTION_DURATION,
-                                "offset": 0.0
-                            })
-                            simulated_time += SEQ_REFILL_ACTION_DURATION
-                            next_refill_time += self.refill_period
-                    else: # refill_mode == "end_of_wave" OR "constant_2psi"
-                        # No splitting
-                        playlist.append({
-                            "wave": wave_type,
-                            "seg1": seg1_p,
-                            "max_p": max_p,
-                            "duration": remaining_duration,
-                            "offset": current_wave_offset
-                        })
+                                "offset": current_wave_offset,
+                            }
+                        )
                         simulated_time += remaining_duration
                         remaining_duration = 0
 
-
             # Initial Prefill
-            playlist.append({
-                "wave": "cooldown", # Re-use cooldown logic (all 2.0 psi)
-                "seg1": 2.0,
-                "max_p": 0.0,
-                "duration": 5.0, # Initial prefill duration
-                "offset": 0.0
-            })
+            playlist.append(
+                {
+                    "wave": "cooldown",  # Re-use cooldown logic (all 2.0 psi)
+                    "seg1": 2.0,
+                    "max_p": 0.0,
+                    "duration": 5.0,  # Initial prefill duration
+                    "offset": 0.0,
+                }
+            )
             simulated_time += 5.0
             # Reset next refill target
             next_refill_time = simulated_time + self.refill_period
@@ -919,26 +961,30 @@ class Controller:
 
                         # Logic specific: If End of Wave Profile, add refill NOW
                         if self.refill_mode == "end_of_wave":
-                             playlist.append({
-                                "wave": "refill_pause",
-                                "seg1": seg1_p,  
-                                "max_p": 0.0,
-                                "duration": SEQ_REFILL_ACTION_DURATION,
-                                "offset": 0.0
-                            })
-                        
+                            playlist.append(
+                                {
+                                    "wave": "refill_pause",
+                                    "seg1": seg1_p,
+                                    "max_p": 0.0,
+                                    "duration": SEQ_REFILL_ACTION_DURATION,
+                                    "offset": 0.0,
+                                }
+                            )
+
                         # Add cooldown after each wave
                         add_wave_item("cooldown", 0.0, 0.0, SEQ_COOLDOWN_DURATION)
 
         else:
             # Single mode (legacy behavior but using the new loop structure)
-            playlist.append({
-                "wave": WAVE_FUNCTION,
-                "seg1": TARGET_PRESSURES[0], # Default from config
-                "max_p": 10.0, # Default max
-                "duration": float('inf'),
-                "offset": 0.0
-            })
+            playlist.append(
+                {
+                    "wave": WAVE_FUNCTION,
+                    "seg1": TARGET_PRESSURES[0],  # Default from config
+                    "max_p": 10.0,  # Default max
+                    "duration": float("inf"),
+                    "offset": 0.0,
+                }
+            )
 
         current_item_idx = 0
         item_start_time = time.perf_counter()
@@ -950,11 +996,11 @@ class Controller:
 
         while self.running:
             now = time.perf_counter()
-            
+
             # Check if we need to advance to next item in sequence
             current_item = playlist[current_item_idx]
             time_in_item = now - item_start_time
-            
+
             if time_in_item >= current_item["duration"]:
                 current_item_idx += 1
                 if current_item_idx >= len(playlist):
@@ -970,8 +1016,8 @@ class Controller:
             seg1_target = current_item["seg1"]
             p_max = current_item["max_p"]
             time_offset = current_item.get("offset", 0.0)
-            
-            effective_time = time_in_item + time_offset # For phase continuity
+
+            effective_time = time_in_item + time_offset  # For phase continuity
 
             # Store current config for the logger
             self.current_seq_config = current_item
@@ -979,10 +1025,10 @@ class Controller:
             desired: List[float] = [0.0] * len(ARDUINO_IDS)
 
             # --- Wave Generation Logic ---
-            
+
             if w_type == "refill_pause":
                 # Pause experiment, refill segment 1
-                desired[0] = seg1_target # Refill
+                desired[0] = seg1_target  # Refill
                 # Hold others at last known value
                 for i in range(1, len(ARDUINO_IDS)):
                     desired[i] = last_wave_pressures[i]
@@ -991,37 +1037,39 @@ class Controller:
                 # Regular cooldown, Seg 1 is OFF (0.0) unless it was the split entry?
                 # In add_wave_item call above, we passed 0.0 for seg1.
                 desired = [2.0] * len(ARDUINO_IDS)
-                desired[0] = seg1_target # This will be 0.0 if we passed 0.0
-                
+                desired[0] = seg1_target  # This will be 0.0 if we passed 0.0
+
             elif w_type == "axial":
                 # seg1 -> 0.0 (OFF during experiment)
                 # seg2 -> constant 2.0
                 # seg3 -> sinusoid
                 # seg4 -> constant 2.0
-                
+
                 AXIAL_FREQ = 0.1
                 center = p_max / 2.0
                 ampl = p_max / 2.0
-                
+
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
                 desired[1] = 2.0
                 desired[3] = 2.0
-                
-                val = center + ampl * math.sin(2.0 * math.pi * AXIAL_FREQ * effective_time)
+
+                val = center + ampl * math.sin(
+                    2.0 * math.pi * AXIAL_FREQ * effective_time
+                )
                 desired[2] = max(0.0, min(p_max, val))
 
             elif w_type == "triangular":
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
-                
+
                 # Triangular trajectory for segments 2, 3, 4
-                T = 10.0 
+                T = 10.0
                 t_cycle = effective_time % T
                 phase_len = T / 3.0
-                
+
                 idx_seg2 = 1
                 idx_seg3 = 2
                 idx_seg4 = 3
-                
+
                 if t_cycle < phase_len:
                     u = t_cycle / phase_len
                     desired[idx_seg2] = p_max * (1.0 - u)
@@ -1040,34 +1088,40 @@ class Controller:
 
             elif w_type == "circular":
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
-                
-                indices = [1, 2, 3] # Segments 2, 3, 4
+
+                indices = [1, 2, 3]  # Segments 2, 3, 4
                 freq = 0.1
-                
+
                 for k, idx in enumerate(indices):
                     phase = (2.0 * math.pi / 3.0) * k
-                    val = (math.sin(2.0 * math.pi * freq * effective_time + phase) + 1.0) / 2.0 * p_max
+                    val = (
+                        (math.sin(2.0 * math.pi * freq * effective_time + phase) + 1.0)
+                        / 2.0
+                        * p_max
+                    )
                     desired[idx] = val
-            
+
             # --- Override for Constant 2 PSI Mode ---
             if self.refill_mode == "constant_2psi":
                 desired[0] = 2.0
-            
+
             # Save state for holding pressure during pause
             if w_type in ["axial", "triangular", "circular", "static"]:
                 last_wave_pressures = list(desired)
-            
+
             # elif w_type == "static":
             #     desired = [seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))]
             #     pass
             # Handled by fallback? Wait, static was missing in my large paste?
             elif w_type == "static":
-                 desired = [seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))]
-            
+                desired = [
+                    seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))
+                ]
+
             # --- Override for Constant 2 PSI Mode --- (Redundant check if placed after all types, but good)
             if self.refill_mode == "constant_2psi":
                 desired[0] = 2.0
-            
+
             # Save state for holding pressure during pause (again?)
             if w_type in ["axial", "triangular", "circular", "static"]:
                 last_wave_pressures = list(desired)
@@ -1090,7 +1144,7 @@ class Controller:
         """Logging thread: builds rows and hands to DataLogger."""
         step_id = 0
         next_wake_time = time.perf_counter()
-        
+
         while self.running:
             if self.mocap:
                 mocap_tuple = self.mocap.get_data()
@@ -1103,7 +1157,7 @@ class Controller:
 
             self.logger.log(step_id, desired_copy, measured_copy, mocap_tuple)
             step_id += 1
-            
+
             # Drift correction for 100Hz
             next_wake_time += 0.01
             sleep_time = next_wake_time - time.perf_counter()
@@ -1155,7 +1209,18 @@ class Controller:
         times: List[float] = []
         traces: List[List[float]] = [[] for _ in ARDUINO_IDS]
 
+        mocap_x = []
+        mocap_z = []
+
         while self.running and (time.perf_counter() - start) < EXPERIMENT_DURATION:
+            # Capture mocap for plotting
+            if self.mocap:
+                md, _ = self.mocap.get_data()
+                # 0=x, 1=y, 2=z
+                if md and len(md) >= 3 and not math.isnan(md[0]):
+                    mocap_x.append(md[0])
+                    mocap_z.append(md[2])
+
             if self.live_plotter:
                 now_t = time.perf_counter() - start
                 with self.data_lock:
@@ -1163,11 +1228,8 @@ class Controller:
                     current_measured = [list(m) for m in self.measured]
 
                 times.append(now_t)
-                # traces is now: [arduino_idx][sensor_idx] -> list of values
-                # But we need to append to existing structure.
-                # Let's restructure traces to be: traces[arduino_idx][sensor_idx] is a list
+
                 if not traces[0] or not isinstance(traces[0][0], list):
-                    # Re-init traces if it was the old structure or empty
                     traces = [[[] for _ in range(4)] for _ in ARDUINO_IDS]
 
                 for i, sensors in enumerate(current_measured):
@@ -1175,44 +1237,54 @@ class Controller:
                         traces[i][s_idx].append(val)
 
                 axes = self.live_plotter["axes"]
-                
+
                 # Clear all axes
                 for ax in axes:
                     ax.cla()
                     ax.grid(True)
 
-                # Segment 1: Arduino 3 (Sensors 2, 3, 4)
-                # Segment 2: Arduino 7 (Sensors 2, 3, 4)
-                # Segment 3: Arduino 8 (Sensors 2, 3, 4)
-                
-                # Map segments to Arduino IDs
-                segments = [
-                    (0, 3, "Segment 1 (A3)"),
-                    (1, 7, "Segment 2 (A7)"),
-                    (2, 8, "Segment 3 (A8)")
-                ]
+                # --- Plot 1: Segment 1 (Pouches 1-5) ---
+                # Arduino 3 (All 4 channels) + Arduino 7 (Channel 0)
+                idx3 = ARDUINO_IDS.index(3) if 3 in ARDUINO_IDS else -1
+                idx7 = ARDUINO_IDS.index(7) if 7 in ARDUINO_IDS else -1
 
-                for plot_idx, aid, title in segments:
-                    ax = axes[plot_idx]
-                    
-                    # Find index of this Arduino in ARDUINO_IDS
-                    try:
-                        a_idx = ARDUINO_IDS.index(aid)
-                    except ValueError:
-                        continue
+                ax0 = axes[0]
+                if idx3 >= 0:
+                    for s in range(4):
+                        if len(traces[idx3][s]) == len(times):
+                            ax0.plot(times, traces[idx3][s], label=f"Pouch {s + 1}")
+                if idx7 >= 0:
+                    if len(traces[idx7][0]) == len(times):
+                        ax0.plot(times, traces[idx7][0], label="Pouch 5")
 
-                    # Plot sensors 0, 1, 2, 3 (A0-A3)
-                    # traces[a_idx] is a list of lists: [ [s0_vals], [s1_vals], [s2_vals], [s3_vals] ]
-                    for s_idx in range(4):
-                        if s_idx < len(traces[a_idx]):
-                            ax.plot(times, traces[a_idx][s_idx], label=f"A{s_idx}")
+                ax0.set_ylabel("PSI")
+                ax0.set_title("Segment 1")
+                ax0.legend(loc="upper right", fontsize="x-small", ncol=2)
 
-                    ax.set_title(title, fontsize="small")
-                    ax.set_ylabel("PSI")
-                    if plot_idx == 0:
-                        ax.legend(loc="upper right", fontsize="small")
+                # --- Plot 2: Segments 2-4 ---
+                # Arduino 7 (Channels 1, 2, 3)
+                ax1 = axes[1]
+                if idx7 >= 0:
+                    labels = ["Segment 2", "Segment 3", "Segment 4"]
+                    for i, lbl in enumerate(labels, start=1):
+                        if len(traces[idx7][i]) == len(times):
+                            ax1.plot(times, traces[idx7][i], label=lbl)
 
-                axes[-1].set_xlabel("Time (s)")
+                ax1.set_ylabel("PSI")
+                ax1.set_title("Segments 2-4")
+                ax1.legend(loc="upper right", fontsize="small")
+
+                # --- Plot 3: Robot Trajectory (X-Z) ---
+                ax2 = axes[2]
+                if mocap_x:
+                    ax2.plot(mocap_x, mocap_z, "b-")
+                    ax2.plot(mocap_x[-1], mocap_z[-1], "ro")  # Current pos
+
+                ax2.set_xlabel("X (m)")
+                ax2.set_ylabel("Z (m)")
+                ax2.set_title("Trajectory (Top View)")
+                ax2.set_aspect("equal", adjustable="datalim")
+
                 plt.pause(0.05)
             else:
                 time.sleep(0.1)
@@ -1294,13 +1366,13 @@ class Controller:
                 description = "Interrupted - no description"
 
         self.logger.stop(description)
-        
+
         # Ask to save
         try:
             save_input = input("Save experiment data? [Y/n]: ").strip().lower()
             save = save_input not in ("n", "no")
         except (EOFError, KeyboardInterrupt):
-            save = True # Default to save on interrupt during prompt
+            save = True  # Default to save on interrupt during prompt
             print("\nSaving by default.")
 
         self.logger.finalize(save)
@@ -1312,9 +1384,10 @@ class Controller:
 # Main entry
 # =====================================================================
 
+
 def main():
     # Prompts for Refill Options
-    refill_mode = "periodic" # "periodic", "end_of_wave", or "constant_2psi"
+    refill_mode = "periodic"  # "periodic", "end_of_wave", or "constant_2psi"
     refill_period = SEQ_SEG1_REFILL_PERIOD
 
     try:
@@ -1323,20 +1396,22 @@ def main():
             print("[1] Periodic (default)")
             print("[2] End of Wave Profile")
             print("[3] Constant 2 PSI (Seg 1)")
-            
+
             ans = input("Choice [1/2/3]: ").strip()
-            if ans == '2':
+            if ans == "2":
                 refill_mode = "end_of_wave"
                 print("Mode: End of Wave Profile (Refill after every wave)")
-                refill_period = float('inf') # Disable periodic check
-            elif ans == '3':
+                refill_period = float("inf")  # Disable periodic check
+            elif ans == "3":
                 refill_mode = "constant_2psi"
                 print("Mode: Constant 2 PSI on Segment 1")
-                refill_period = float('inf') # Disable periodic check
+                refill_period = float("inf")  # Disable periodic check
             else:
                 refill_mode = "periodic"
                 # Ask for period
-                ans = input(f"Refill period (seconds) [default: {SEQ_SEG1_REFILL_PERIOD}]: ").strip()
+                ans = input(
+                    f"Refill period (seconds) [default: {SEQ_SEG1_REFILL_PERIOD}]: "
+                ).strip()
                 if ans:
                     try:
                         val = float(ans)
@@ -1347,7 +1422,7 @@ def main():
                 print(f"Mode: Periodic ({refill_period}s)")
 
     except (EOFError, KeyboardInterrupt):
-        pass # Use defaults
+        pass  # Use defaults
 
     controller = Controller(refill_mode=refill_mode, refill_period=refill_period)
 

@@ -78,11 +78,11 @@ START_TIME_OFFSET_SEC = 0  # Time in seconds to skip at the beginning
 TIME_COL = "time"
 
 
-DESIRED_PRESSURE_COLS = ["pd_3", "pd_6", "pd_7", "pd_8"]
+DESIRED_PRESSURE_COLS = ["pd_3", "pd_7"]
 MEASURED_PRESSURE_SEGMENT1_COLS = ["pm_3_1", "pm_3_2", "pm_3_3", "pm_3_4", "pm_7_1"]
-MEASURED_PRESSURE_SEGMENT2_COLS = ["pm_7_2", "pm_7_3", "pm_7_4", "pm_8_1", "pm_8_2"]
-MEASURED_PRESSURE_SEGMENT3_COLS = ["pm_8_3"]
-MEASURED_PRESSURE_SEGMENT4_COLS = ["pm_8_4"]
+MEASURED_PRESSURE_SEGMENT2_COLS = ["pm_7_2"]
+MEASURED_PRESSURE_SEGMENT3_COLS = ["pm_7_3"]
+MEASURED_PRESSURE_SEGMENT4_COLS = ["pm_7_4"]
 MOCAP_POS_COLS = ["mocap_3_x", "mocap_3_y", "mocap_3_z"]
 MOCAP_QUAT_COLS = ["mocap_3_qx", "mocap_3_qy", "mocap_3_qz", "mocap_3_qw"]
 
@@ -167,7 +167,7 @@ SENSOR_CONTROL_CONFIG_1 = [
         "ylabel": "Sensor Pressure (PSI)",
         "columns": MEASURED_PRESSURE_SEGMENT3_COLS,
         "labels": ["pm_segment_3"],
-        "colors": ["tab:blue", "tab:cyan"],
+        "colors": ["tab:blue"],
     },
     {
         "title": "Measured Pressures (Segment 4)",
@@ -201,12 +201,8 @@ SENSOR_CONTROL_CONFIG_2 = [
         "columns": MEASURED_PRESSURE_SEGMENT2_COLS,
         "labels": [
             "Segment_2_pouch_1",
-            "Segment_2_pouch_2",
-            "Segment_2_pouch_3",
-            "Segment_2_pouch_4",
-            "Segment_2_pouch_5",
         ],
-        "colors": ["tab:orange", "tab:olive", "gold", "darkorange", "peru"],
+        "colors": ["tab:orange"],
     },
 ]
 
@@ -542,20 +538,34 @@ def create_3d_mocap_plot(fig_num, data, window_title):
     # Filter out NaNs for plotting and limits
     valid_mask = ~np.isnan(x) & ~np.isnan(y) & ~np.isnan(z)
     if not np.any(valid_mask):
-         print("Warning: No valid numeric data for 3D plot.")
-         return
+        print("Warning: No valid numeric data for 3D plot.")
+        return
 
     x_valid, y_valid, z_valid = x[valid_mask], y[valid_mask], z[valid_mask]
 
     ax.plot(x_valid, y_valid, z_valid, label="Trajectory", color="orange")
-    
+
     # Plot start/end only if we have valid points
     if len(x_valid) > 0:
         ax.scatter(
-            x_valid[0], y_valid[0], z_valid[0], c="g", s=100, marker="o", label="Start", depthshade=False
+            x_valid[0],
+            y_valid[0],
+            z_valid[0],
+            c="g",
+            s=100,
+            marker="o",
+            label="Start",
+            depthshade=False,
         )
         ax.scatter(
-            x_valid[-1], y_valid[-1], z_valid[-1], c="r", s=100, marker="s", label="End", depthshade=False
+            x_valid[-1],
+            y_valid[-1],
+            z_valid[-1],
+            c="r",
+            s=100,
+            marker="s",
+            label="End",
+            depthshade=False,
         )
 
     # Note: Removed fontsize. Will use 'axes.labelsize' from rcParams
@@ -571,7 +581,9 @@ def create_3d_mocap_plot(fig_num, data, window_title):
     ax.grid(True)
 
     # Use valid data for limits
-    max_range = np.ptp(np.vstack([x_valid, y_valid, z_valid]), axis=1).max() / 2.0 or 1.0
+    max_range = (
+        np.ptp(np.vstack([x_valid, y_valid, z_valid]), axis=1).max() / 2.0 or 1.0
+    )
     mid_x, mid_y, mid_z = np.mean(x_valid), np.mean(y_valid), np.mean(z_valid)
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
