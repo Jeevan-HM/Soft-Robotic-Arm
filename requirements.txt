@@ -107,7 +107,7 @@ grpcio==1.75.1
 gyp==0.1
 html5lib==1.1
 httplib2==0.20.2
-idna==3.3
+idna==3.7
 image-geometry==3.2.1
 importlib-metadata==4.6.4
 iniconfig==1.1.1
