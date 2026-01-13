@@ -1,0 +1,2 @@
+source;share/vrpn_mocap/environment/ament_prefix_path.sh
+source;share/vrpn_mocap/environment/path.sh

@@ -1,0 +1,16 @@
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/lib/arm_vrpn_pubsub/arm_mocap_pubsub
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/ament_index/resource_index/package_run_dependencies/arm_vrpn_pubsub
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/ament_index/resource_index/parent_prefix_path/arm_vrpn_pubsub
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/ament_prefix_path.sh
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/ament_prefix_path.dsv
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/path.sh
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/path.dsv
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.bash
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.sh
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.zsh
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.dsv
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/package.dsv
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/ament_index/resource_index/packages/arm_vrpn_pubsub
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/cmake/arm_vrpn_pubsubConfig.cmake
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/cmake/arm_vrpn_pubsubConfig-version.cmake
+/home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/package.xml

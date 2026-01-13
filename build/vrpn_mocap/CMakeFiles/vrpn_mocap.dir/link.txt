@@ -1,0 +1,2 @@
+/usr/bin/ar qc libvrpn_mocap.a CMakeFiles/vrpn_mocap.dir/src/client.cpp.o CMakeFiles/vrpn_mocap.dir/src/tracker.cpp.o
+/usr/bin/ranlib libvrpn_mocap.a

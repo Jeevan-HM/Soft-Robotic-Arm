@@ -70,9 +70,9 @@ plt.rcParams.update(
 # NOTE: Column mapping now uses header names (strings) instead of fixed indices.
 
 # -- General Settings --
-EXPERIMENTS_BASE_DIR = "/home/g1/Developer/Thesis/experiments"
-# EXPERIMENTS_BASE_DIR = "/Users/g1/Developer/Thesis/experiments"
-START_TIME_OFFSET_SEC = 10  # Time in seconds to skip at the beginning
+# EXPERIMENTS_BASE_DIR = "/home/g1/Developer/Thesis/experiments"
+EXPERIMENTS_BASE_DIR = "/home/jeevan/Developer/Soft-Robotic-Arm/experiments"
+START_TIME_OFFSET_SEC = 0  # Time in seconds to skip at the beginning
 
 # -- Column Names --
 TIME_COL = "time"
@@ -539,13 +539,24 @@ def create_3d_mocap_plot(fig_num, data, window_title):
 
     x, y, z = data[MOCAP_POS_COLS].values.T
 
-    ax.plot(x, y, z, label="Trajectory", color="orange")
-    ax.scatter(
-        x[0], y[0], z[0], c="g", s=100, marker="o", label="Start", depthshade=False
-    )
-    ax.scatter(
-        x[-1], y[-1], z[-1], c="r", s=100, marker="s", label="End", depthshade=False
-    )
+    # Filter out NaNs for plotting and limits
+    valid_mask = ~np.isnan(x) & ~np.isnan(y) & ~np.isnan(z)
+    if not np.any(valid_mask):
+         print("Warning: No valid numeric data for 3D plot.")
+         return
+
+    x_valid, y_valid, z_valid = x[valid_mask], y[valid_mask], z[valid_mask]
+
+    ax.plot(x_valid, y_valid, z_valid, label="Trajectory", color="orange")
+    
+    # Plot start/end only if we have valid points
+    if len(x_valid) > 0:
+        ax.scatter(
+            x_valid[0], y_valid[0], z_valid[0], c="g", s=100, marker="o", label="Start", depthshade=False
+        )
+        ax.scatter(
+            x_valid[-1], y_valid[-1], z_valid[-1], c="r", s=100, marker="s", label="End", depthshade=False
+        )
 
     # Note: Removed fontsize. Will use 'axes.labelsize' from rcParams
     ax.set_xlabel("X Position ", fontweight="bold")
@@ -559,8 +570,9 @@ def create_3d_mocap_plot(fig_num, data, window_title):
     ax.legend()
     ax.grid(True)
 
-    max_range = np.ptp(np.vstack([x, y, z]), axis=1).max() / 2.0 or 1.0
-    mid_x, mid_y, mid_z = np.mean(x), np.mean(y), np.mean(z)
+    # Use valid data for limits
+    max_range = np.ptp(np.vstack([x_valid, y_valid, z_valid]), axis=1).max() / 2.0 or 1.0
+    mid_x, mid_y, mid_z = np.mean(x_valid), np.mean(y_valid), np.mean(z_valid)
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
     ax.set_zlim(mid_z - max_range, mid_z + max_range)

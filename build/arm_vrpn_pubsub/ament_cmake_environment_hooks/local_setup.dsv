@@ -1,0 +1,2 @@
+source;share/arm_vrpn_pubsub/environment/ament_prefix_path.sh
+source;share/arm_vrpn_pubsub/environment/path.sh

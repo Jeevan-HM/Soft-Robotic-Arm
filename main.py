@@ -67,17 +67,88 @@ ARDUINO_IDS = [3, 6, 7, 8]
 ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 
 # Experiment settings
-EXPERIMENT_DURATION = 120.0  # seconds
+EXPERIMENT_DURATION = 2500.0  # seconds (Enough for 12 * 205s = 2460s)
 RAMPDOWN_DURATION = 5.0      # seconds to ramp down all pressures to zero
 
 # Desired base pressures (one per Arduino ID, in PSI)
-TARGET_PRESSURES = [3.0 for _ in ARDUINO_IDS]
+TARGET_PRESSURES = [2.0 for _ in ARDUINO_IDS]
 
 # Waveform to run
-WAVE_FUNCTION = "triangular"      # or "circular", "static"
+WAVE_FUNCTION = "sequence"      # "sequence", "axial", "circular", "triangular", "static"
+
+# Sequence Configuration
+SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
+SEQ_SEG1_PRESSURES = [2.0, 3.0]
+SEQ_MAX_PRESSURES = [5.0, 10.0]
+SEQ_WAVE_DURATION = 200.0    # Duration for each wave type in the sequence
+SEQ_COOLDOWN_DURATION = 10.0 # Duration of 2psi hold between waves
+SEQ_SEG1_REFILL_PERIOD = 100.0 # Target period for refilling Segment 1
+SEQ_REFILL_ACTION_DURATION = 5.0 # Duration of the refill pause/interruption
 
 # Mocap settings
 USE_MOCAP = True
+MOCAP_PORT = "tcp://127.0.0.1:3885"
+MOCAP_DATA_SIZE = 21  # 3 rigid bodies * 7 values each
+
+# Plotting
+USE_LIVE_PLOT = True and HAS_MPL
+ARDUINOS_NO_PLOT = [6]
+
+# Gemini API settings
+USE_GEMINI_AUTO_DESCRIPTION = True
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+# =====================================================================
+# Logging setup
+# =====================================================================
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# =====================================================================
+# Arduino Manager
+# =====================================================================
+
+class ArduinoManager:
+    """
+    Manages TCP connections to multiple Arduinos.
+    PC -> Arduino: float32 desired pressure (psi)
+    Arduino -> PC: 4 * int16 ADC counts from ADS1115 (big endian)
+    """
+
+    def __init__(self) -> None:
+        self.server_sockets: List[socket.socket] = []
+        self.client_sockets: List[socket.socket] = []
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=len(ARDUINO_IDS)
+        )
+
+    def connect(self) -> bool:
+        """Bind/listen on all configured ports and accept Arduino connections."""
+        for arduino_id in ARDUINO_IDS:
+             # Implementation hidden
+             pass
+        return True # Mocked
+
+    # Note: connect implemented above is just a snippet context, not replacing full class.
+    # The tool will replace the TARGET block.
+    # Wait, I need to target the block carefully.
+    # Let me just replace the Constants section and then the loop logic separately? No, better to do one replace or carefully targeted.
+    # I will replace the constants block first.
+
+    # Oops, tool arguments require specific TargetContent.
+    # I will replace the Constants section.
+    pass
+
+# STOP. I should use `replace_file_content` just for the constants first, then another call for the loop.
+# Or better, just one call if they are close? They are far apart (Line 80 vs 760).
+# I will make TWO calls.
+# CALL 1: Constants
+
 MOCAP_PORT = "tcp://127.0.0.1:3885"
 MOCAP_DATA_SIZE = 21  # 3 rigid bodies * 7 values each
 
@@ -359,6 +430,9 @@ class DataLogger:
             # plus mocap time offset
             cols.append("mocap_time_rel_s")
 
+        # Sequence columns
+        cols.extend(["config_wave_type", "config_seg1_psi", "config_max_psi"])
+
         return cols
 
     def _ensure_dataset_and_append(self, data_array: np.ndarray) -> None:
@@ -482,6 +556,9 @@ class DataLogger:
                     
                     col_names.append("mocap_time_rel_s")
 
+                # Sequence columns
+                col_names.extend(["config_wave_type", "config_seg1_psi", "config_max_psi"])
+
                 # Create resizable dataset
                 # Shape: (0, num_columns), Max Shape: (Unlimited, num_columns)
                 num_cols = len(col_names)
@@ -551,6 +628,7 @@ class DataLogger:
         desired: List[float],
         measured: List[List[float]],
         mocap_tuple=None,
+        seq_config=None,
     ) -> None:
         if self.hdf5_path is None or self.start_time_ns is None:
             return
@@ -582,6 +660,18 @@ class DataLogger:
             else:
                 row.extend(float(v) for v in mocap_data)
             row.append(float(mocap_dt_s))
+
+        # Sequence config
+        if seq_config:
+            # wave_type (enum/int), seg1_psi, max_psi
+            # We map wave strings to ints for HDF5: axial=1, circular=2, triangular=3, static=0
+            w_map = {"static": 0, "axial": 1, "circular": 2, "triangular": 3}
+            w_val = w_map.get(seq_config.get("wave", ""), -1)
+            row.append(float(w_val))
+            row.append(float(seq_config.get("seg1", 0.0)))
+            row.append(float(seq_config.get("max_p", 0.0)))
+        else:
+            row.extend([0.0, 0.0, 0.0])
 
         with self.lock:
             self.data_buffer.append(row)
@@ -632,13 +722,23 @@ class DataLogger:
             client = genai.Client(api_key=GEMINI_API_KEY)
             model = "gemini-2.5-flash"
             prompt = f"""
-                Generate a 1-sentence experiment description (max 15 words) for:
+                Generate a 1-sentence experiment description (max 20 words) for:
                 Wave type: {WAVE_FUNCTION}
                 Duration: {int(EXPERIMENT_DURATION)}s
                 Arduinos: {ARDUINO_IDS}
                 Target pressures: {TARGET_PRESSURES} PSI
                 Mocap enabled: {"Yes" if USE_MOCAP and HAS_ZMQ else "No"}
             """
+            if WAVE_FUNCTION == "sequence":
+                prompt += f"""
+                Sequence Details:
+                - Wave Types: {SEQ_WAVE_TYPES}
+                - Seg1 Pressures: {SEQ_SEG1_PRESSURES} PSI
+                - Max Pressures: {SEQ_MAX_PRESSURES} PSI
+                - Wave Duration: {SEQ_WAVE_DURATION}s per wave
+                - Total items: {len(SEQ_WAVE_TYPES) * len(SEQ_SEG1_PRESSURES) * len(SEQ_MAX_PRESSURES)}
+                The experiment runs through all combinations of these parameters.
+                """
             resp = client.models.generate_content(model=model, contents=prompt)
             return resp.text.strip()
         except Exception as e:
@@ -651,10 +751,13 @@ class DataLogger:
 # =====================================================================
 
 class Controller:
-    def __init__(self) -> None:
+    def __init__(self, refill_mode: str = "periodic", refill_period: float = SEQ_SEG1_REFILL_PERIOD) -> None:
         self.arduinos = ArduinoManager()
         self.logger = DataLogger()
         self.mocap: Optional[MocapManager] = None
+        
+        self.refill_mode = refill_mode
+        self.refill_period = refill_period
 
         self.running = False
 
@@ -662,6 +765,7 @@ class Controller:
         self.data_lock = threading.Lock()
         self.desired: List[float] = [0.0 for _ in ARDUINO_IDS]
         self.measured: List[List[float]] = [[math.nan] * 4 for _ in ARDUINO_IDS]
+        self.current_seq_config = None
 
         # Threads
         self.wave_thread: Optional[threading.Thread] = None
@@ -716,118 +820,264 @@ class Controller:
 
     # ---------------- wave & logging loops ----------------
 
-    # ---------------- wave & logging loops ----------------
-
     def _wave_loop(self) -> None:
         """
         Generates desired pressures and communicates with Arduinos.
-
-        AXIAL behavior (segments correspond to ARDUINO_IDS order):
-          - Prefill: all 4 segments at 2 psi for a few seconds
-          - Then:
-              seg1 (index 0) -> 0 psi (cut off)
-              seg2 (index 1) -> 2 psi constant
-              seg3 (index 2) -> 0–10 psi sinusoid
-              seg4 (index 3) -> 2 psi constant
+        Supports "sequence" mode to iterate through combinations of parameters.
         """
-        start = time.perf_counter()
-        PREFILL_DURATION = 5.0   # seconds
-        AXIAL_FREQ = 0.1         # Hz for segment 3
-        AXIAL_CENTER = 5.0       # center of 0–10 psi range
-        AXIAL_AMPL = 5.0         # amplitude to get ~0–10 psi swing
+        start_time = time.perf_counter()
+        
+        # If running a sequence, build the playlist
+        playlist = []
+        if WAVE_FUNCTION == "sequence":
+            # Track time for refill logic
+            simulated_time = 0.0
+            next_refill_time = self.refill_period # Target time for next refill (USER CONFIG)
+
+            def add_wave_item(wave_type, seg1_p, max_p, duration):
+                nonlocal simulated_time, next_refill_time
+                
+                # Check if this item crosses the next refill time
+                # We need to loop because a very long wave might need multiple refills (unlikely but possible)
+                remaining_duration = duration
+                current_wave_offset = 0.0
+                
+                # If mode is end_of_wave, we do NOT split. refill_period is inf anyway.
+                # If periodic, we split.
+                
+                while remaining_duration > 0:
+                    time_until_refill = next_refill_time - simulated_time
+                    
+                    if self.refill_mode == "periodic":
+                        if time_until_refill <= 0 or time_until_refill > remaining_duration:
+                            # Case 1: Refill is far off or we are skipping it (if inf)
+                             playlist.append({
+                                "wave": wave_type,
+                                "seg1": seg1_p,
+                                "max_p": max_p,
+                                "duration": remaining_duration,
+                                "offset": current_wave_offset
+                            })
+                             simulated_time += remaining_duration
+                             remaining_duration = 0
+                        else:
+                            # Case 2: Refill happens during this item
+                            chunk_dur = time_until_refill
+                            
+                            if chunk_dur > 0.1: 
+                                playlist.append({
+                                    "wave": wave_type,
+                                    "seg1": seg1_p,
+                                    "max_p": max_p,
+                                    "duration": chunk_dur,
+                                    "offset": current_wave_offset
+                                })
+                                simulated_time += chunk_dur
+                                current_wave_offset += chunk_dur
+                                remaining_duration -= chunk_dur
+                            
+                            # Add Refill Pause
+                            playlist.append({
+                                "wave": "refill_pause",
+                                "seg1": seg1_p,  
+                                "max_p": 0.0,
+                                "duration": SEQ_REFILL_ACTION_DURATION,
+                                "offset": 0.0
+                            })
+                            simulated_time += SEQ_REFILL_ACTION_DURATION
+                            next_refill_time += self.refill_period
+                    else: # refill_mode == "end_of_wave" OR "constant_2psi"
+                        # No splitting
+                        playlist.append({
+                            "wave": wave_type,
+                            "seg1": seg1_p,
+                            "max_p": max_p,
+                            "duration": remaining_duration,
+                            "offset": current_wave_offset
+                        })
+                        simulated_time += remaining_duration
+                        remaining_duration = 0
+
+
+            # Initial Prefill
+            playlist.append({
+                "wave": "cooldown", # Re-use cooldown logic (all 2.0 psi)
+                "seg1": 2.0,
+                "max_p": 0.0,
+                "duration": 5.0, # Initial prefill duration
+                "offset": 0.0
+            })
+            simulated_time += 5.0
+            # Reset next refill target
+            next_refill_time = simulated_time + self.refill_period
+
+            for seg1_p in SEQ_SEG1_PRESSURES:
+                for max_p in SEQ_MAX_PRESSURES:
+                    for wave_type in SEQ_WAVE_TYPES:
+                        # Add wave
+                        add_wave_item(wave_type, seg1_p, max_p, SEQ_WAVE_DURATION)
+
+                        # Logic specific: If End of Wave Profile, add refill NOW
+                        if self.refill_mode == "end_of_wave":
+                             playlist.append({
+                                "wave": "refill_pause",
+                                "seg1": seg1_p,  
+                                "max_p": 0.0,
+                                "duration": SEQ_REFILL_ACTION_DURATION,
+                                "offset": 0.0
+                            })
+                        
+                        # Add cooldown after each wave
+                        add_wave_item("cooldown", 0.0, 0.0, SEQ_COOLDOWN_DURATION)
+
+        else:
+            # Single mode (legacy behavior but using the new loop structure)
+            playlist.append({
+                "wave": WAVE_FUNCTION,
+                "seg1": TARGET_PRESSURES[0], # Default from config
+                "max_p": 10.0, # Default max
+                "duration": float('inf'),
+                "offset": 0.0
+            })
+
+        current_item_idx = 0
+        item_start_time = time.perf_counter()
 
         next_wake_time = time.perf_counter()
 
+        # Track last pressures for holding during pauses
+        last_wave_pressures = [0.0] * len(ARDUINO_IDS)
+
         while self.running:
-            t = time.perf_counter() - start
+            now = time.perf_counter()
+            
+            # Check if we need to advance to next item in sequence
+            current_item = playlist[current_item_idx]
+            time_in_item = now - item_start_time
+            
+            if time_in_item >= current_item["duration"]:
+                current_item_idx += 1
+                if current_item_idx >= len(playlist):
+                    logger.info("Sequence complete.")
+                    break
+                current_item = playlist[current_item_idx]
+                item_start_time = now
+                time_in_item = 0.0
+                logger.info(f"Starting sequence item: {current_item}")
+
+            # Extract parameters for current step
+            w_type = current_item["wave"]
+            seg1_target = current_item["seg1"]
+            p_max = current_item["max_p"]
+            time_offset = current_item.get("offset", 0.0)
+            
+            effective_time = time_in_item + time_offset # For phase continuity
+
+            # Store current config for the logger
+            self.current_seq_config = current_item
+
             desired: List[float] = [0.0] * len(ARDUINO_IDS)
 
-            # Universal Prefill Phase
-            if t < PREFILL_DURATION:
+            # --- Wave Generation Logic ---
+            
+            if w_type == "refill_pause":
+                # Pause experiment, refill segment 1
+                desired[0] = seg1_target # Refill
+                # Hold others at last known value
+                for i in range(1, len(ARDUINO_IDS)):
+                    desired[i] = last_wave_pressures[i]
+
+            elif w_type == "cooldown":
+                # Regular cooldown, Seg 1 is OFF (0.0) unless it was the split entry?
+                # In add_wave_item call above, we passed 0.0 for seg1.
                 desired = [2.0] * len(ARDUINO_IDS)
+                desired[0] = seg1_target # This will be 0.0 if we passed 0.0
                 
-            else:
-                # Adjust time so wave starts at t=0 after prefill
-                wave_t = t - PREFILL_DURATION
+            elif w_type == "axial":
+                # seg1 -> 0.0 (OFF during experiment)
+                # seg2 -> constant 2.0
+                # seg3 -> sinusoid
+                # seg4 -> constant 2.0
                 
-                if WAVE_FUNCTION == "axial":
-                    base = 2.0
-                    # seg1 -> 2 psi constant
-                    # seg2 -> 2 psi constant
-                    # seg3 -> 0–10 psi sinusoid
-                    # seg4 -> 2 psi constant
-                    desired[0] = 2.0             # seg1 constant 2 psi
-                    desired[1] = base             # seg2 constant 2 psi
-                    desired[3] = base             # seg4 constant 2 psi
+                AXIAL_FREQ = 0.1
+                center = p_max / 2.0
+                ampl = p_max / 2.0
+                
+                desired[0] = 0.0  # Turn OFF Segment 1 during wave
+                desired[1] = 2.0
+                desired[3] = 2.0
+                
+                val = center + ampl * math.sin(2.0 * math.pi * AXIAL_FREQ * effective_time)
+                desired[2] = max(0.0, min(p_max, val))
 
-                    # seg3 oscillates from ~0–10 psi
-                    p3 = AXIAL_CENTER + AXIAL_AMPL * math.sin(
-                        2.0 * math.pi * AXIAL_FREQ * wave_t
-                    )
-                    # Clamp within physical limits
-                    p3 = max(0.0, min(10.0, p3))
-                    desired[2] = p3
+            elif w_type == "triangular":
+                desired[0] = 0.0  # Turn OFF Segment 1 during wave
+                
+                # Triangular trajectory for segments 2, 3, 4
+                T = 10.0 
+                t_cycle = effective_time % T
+                phase_len = T / 3.0
+                
+                idx_seg2 = 1
+                idx_seg3 = 2
+                idx_seg4 = 3
+                
+                if t_cycle < phase_len:
+                    u = t_cycle / phase_len
+                    desired[idx_seg2] = p_max * (1.0 - u)
+                    desired[idx_seg3] = p_max * u
+                    desired[idx_seg4] = 0.0
+                elif t_cycle < 2 * phase_len:
+                    u = (t_cycle - phase_len) / phase_len
+                    desired[idx_seg2] = 0.0
+                    desired[idx_seg3] = p_max * (1.0 - u)
+                    desired[idx_seg4] = p_max * u
+                else:
+                    u = (t_cycle - 2 * phase_len) / phase_len
+                    desired[idx_seg2] = p_max * u
+                    desired[idx_seg3] = 0.0
+                    desired[idx_seg4] = p_max * (1.0 - u)
 
-                elif WAVE_FUNCTION == "triangular":
-                    # Segment 1 constant at 2.0 psi
-                    desired[0] = 2.0
-                    
-                    # Triangular trajectory for segments 2, 3, 4 (indices 1, 2, 3)
-                    # Cycle through: Seg 2 -> Seg 3 -> Seg 4 -> Seg 2
-                    # Period T = 10s (0.01 Hz equivalent)
-                    T = 10.0
-                    t_cycle = wave_t % T
-                    phase_len = T / 3.0
-                    
-                    # Indices for segments 2, 3, 4
-                    idx_seg2 = 1
-                    idx_seg3 = 2
-                    idx_seg4 = 3
-                    
-                    # Max pressure for actuation
-                    p_max = 10.0  # Max allowed pressure
-                    
-                    if t_cycle < phase_len:
-                        # Phase 1: Seg 2 -> Seg 3
-                        # Seg 2 ramps down, Seg 3 ramps up
-                        u = t_cycle / phase_len
-                        desired[idx_seg2] = p_max * (1.0 - u)
-                        desired[idx_seg3] = p_max * u
-                        desired[idx_seg4] = 0.0
-                        
-                    elif t_cycle < 2 * phase_len:
-                        # Phase 2: Seg 3 -> Seg 4
-                        # Seg 3 ramps down, Seg 4 ramps up
-                        u = (t_cycle - phase_len) / phase_len
-                        desired[idx_seg2] = 0.0
-                        desired[idx_seg3] = p_max * (1.0 - u)
-                        desired[idx_seg4] = p_max * u
-                        
-                    else:
-                        # Phase 3: Seg 4 -> Seg 2
-                        # Seg 4 ramps down, Seg 2 ramps up
-                        u = (t_cycle - 2 * phase_len) / phase_len
-                        desired[idx_seg2] = p_max * u
-                        desired[idx_seg3] = 0.0
-                        desired[idx_seg4] = p_max * (1.0 - u)
+            elif w_type == "circular":
+                desired[0] = 0.0  # Turn OFF Segment 1 during wave
+                
+                indices = [1, 2, 3] # Segments 2, 3, 4
+                freq = 0.1
+                
+                for k, idx in enumerate(indices):
+                    phase = (2.0 * math.pi / 3.0) * k
+                    val = (math.sin(2.0 * math.pi * freq * effective_time + phase) + 1.0) / 2.0 * p_max
+                    desired[idx] = val
+            
+            # --- Override for Constant 2 PSI Mode ---
+            if self.refill_mode == "constant_2psi":
+                desired[0] = 2.0
+            
+            # Save state for holding pressure during pause
+            if w_type in ["axial", "triangular", "circular", "static"]:
+                last_wave_pressures = list(desired)
+            
+            # elif w_type == "static":
+            #     desired = [seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))]
+            #     pass
+            # Handled by fallback? Wait, static was missing in my large paste?
+            elif w_type == "static":
+                 desired = [seg1_target if i == 0 else 0.0 for i in range(len(ARDUINO_IDS))]
+            
+            # --- Override for Constant 2 PSI Mode --- (Redundant check if placed after all types, but good)
+            if self.refill_mode == "constant_2psi":
+                desired[0] = 2.0
+            
+            # Save state for holding pressure during pause (again?)
+            if w_type in ["axial", "triangular", "circular", "static"]:
+                last_wave_pressures = list(desired)
 
-                elif WAVE_FUNCTION == "circular":
-                    desired = []
-                    for i, base in enumerate(TARGET_PRESSURES):
-                        phase = (2.0 * math.pi / len(TARGET_PRESSURES)) * i
-                        val = base + base * 0.5 * math.sin(2.0 * math.pi * 0.1 * wave_t + phase)
-                        desired.append(max(0.0, val))
-                    
-                    # Force segment 1 to constant 2 psi
-                    desired[0] = 2.0
-
-                else:  # "static"
-                    desired = TARGET_PRESSURES.copy()
-
-            measured = self.arduinos.send_all_parallel(desired)
-
+            # Update shared state for logging
             with self.data_lock:
                 self.desired = desired
+
+            measured = self.arduinos.send_all_parallel(desired)
+            with self.data_lock:
                 self.measured = measured
 
             # Drift correction for 100Hz
@@ -967,6 +1217,11 @@ class Controller:
             else:
                 time.sleep(0.1)
 
+            # Check if wave thread has finished (sequence complete)
+            if self.wave_thread and not self.wave_thread.is_alive():
+                logger.info("Wave sequence finished early.")
+                break
+
         logger.info("Experiment duration reached, ramping down...")
         self.stop()
 
@@ -1058,7 +1313,43 @@ class Controller:
 # =====================================================================
 
 def main():
-    controller = Controller()
+    # Prompts for Refill Options
+    refill_mode = "periodic" # "periodic", "end_of_wave", or "constant_2psi"
+    refill_period = SEQ_SEG1_REFILL_PERIOD
+
+    try:
+        if WAVE_FUNCTION == "sequence":
+            print("Select Refill Mode:")
+            print("[1] Periodic (default)")
+            print("[2] End of Wave Profile")
+            print("[3] Constant 2 PSI (Seg 1)")
+            
+            ans = input("Choice [1/2/3]: ").strip()
+            if ans == '2':
+                refill_mode = "end_of_wave"
+                print("Mode: End of Wave Profile (Refill after every wave)")
+                refill_period = float('inf') # Disable periodic check
+            elif ans == '3':
+                refill_mode = "constant_2psi"
+                print("Mode: Constant 2 PSI on Segment 1")
+                refill_period = float('inf') # Disable periodic check
+            else:
+                refill_mode = "periodic"
+                # Ask for period
+                ans = input(f"Refill period (seconds) [default: {SEQ_SEG1_REFILL_PERIOD}]: ").strip()
+                if ans:
+                    try:
+                        val = float(ans)
+                        if val > 0:
+                            refill_period = val
+                    except ValueError:
+                        print(f"Invalid input, using default: {SEQ_SEG1_REFILL_PERIOD}")
+                print(f"Mode: Periodic ({refill_period}s)")
+
+    except (EOFError, KeyboardInterrupt):
+        pass # Use defaults
+
+    controller = Controller(refill_mode=refill_mode, refill_period=refill_period)
 
     def signal_handler(sig, frame):
         print("\nCtrl+C pressed. Stopping gracefully...")
@@ -1070,6 +1361,9 @@ def main():
     logger.info(f"Arduinos: {ARDUINO_IDS}")
     logger.info(f"Pressures: {TARGET_PRESSURES} psi")
     logger.info(f"Wave: {WAVE_FUNCTION}")
+    logger.info(f"Refill Mode: {refill_mode}")
+    if refill_mode == "periodic":
+        logger.info(f"Refill Period: {refill_period}s")
     logger.info(f"Mocap: {'ON' if USE_MOCAP and HAS_ZMQ else 'OFF'}")
     logger.info(
         f"AI Descriptions: {'ON' if USE_GEMINI_AUTO_DESCRIPTION and GEMINI_AVAILABLE and GEMINI_API_KEY else 'OFF'}"

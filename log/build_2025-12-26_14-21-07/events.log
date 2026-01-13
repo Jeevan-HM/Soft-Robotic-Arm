@@ -1,0 +1,406 @@
+[0.000000] (-) TimerEvent: {}
+[0.000648] (arm_vrpn_pubsub) JobQueued: {'identifier': 'arm_vrpn_pubsub', 'dependencies': OrderedDict()}
+[0.000849] (my-test-package) JobQueued: {'identifier': 'my-test-package', 'dependencies': OrderedDict()}
+[0.001008] (vrpn_mocap) JobQueued: {'identifier': 'vrpn_mocap', 'dependencies': OrderedDict()}
+[0.001091] (arm_vrpn_pubsub) JobStarted: {'identifier': 'arm_vrpn_pubsub'}
+[0.014544] (my-test-package) JobStarted: {'identifier': 'my-test-package'}
+[0.023854] (vrpn_mocap) JobStarted: {'identifier': 'vrpn_mocap'}
+[0.046644] (arm_vrpn_pubsub) JobProgress: {'identifier': 'arm_vrpn_pubsub', 'progress': 'cmake'}
+[0.053481] (arm_vrpn_pubsub) JobProgress: {'identifier': 'arm_vrpn_pubsub', 'progress': 'build'}
+[0.056048] (arm_vrpn_pubsub) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub', '--', '-j4', '-l4'], 'cwd': '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'jeevan'), ('XDG_SESSION_TYPE', 'x11'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/jeevan'), ('OLDPWD', '/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws'), ('DESKTOP_SESSION', 'ubuntu-xorg'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/terminator.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('MANAGERPID', '70962'), ('SYSTEMD_EXEC_PID', '71323'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1001/bus'), ('COLORTERM', 'truecolor'), ('TERMINATOR_DBUS_NAME', 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '175548'), ('IM_CONFIG_PHASE', '1'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'jeevan'), ('JOURNAL_STREAM', '8:1739408'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'jeevan'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/g1-lab:@/tmp/.ICE-unix/71295,unix/g1-lab:/tmp/.ICE-unix/71295'), ('INVOCATION_ID', '96bcfb8d3f254d4ca69f3e5c1008f6f7'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1001'), ('DISPLAY', ':0'), ('TERMINATOR_DBUS_PATH', '/net/tenshu/Terminator2'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('IBUS_DISABLE_SNOOPER', '1'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu-xorg'), ('XAUTHORITY', '/run/user/1001/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1001/keyring/ssh'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('SHELL', '/bin/bash'), ('TERMINATOR_UUID', 'urn:uuid:29ae67bb-315f-4c84-b707-dc35224ea82f'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu-xorg'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GPG_AGENT_INFO', '/run/user/1001/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub'), ('LC_ALL', 'en_US.UTF-8'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu-xorg:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu-xorg:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[0.100417] (-) TimerEvent: {}
+[0.202535] (-) TimerEvent: {}
+[0.305141] (-) TimerEvent: {}
+[0.405671] (-) TimerEvent: {}
+[0.507138] (-) TimerEvent: {}
+[0.608379] (-) TimerEvent: {}
+[0.709265] (-) TimerEvent: {}
+[0.810548] (-) TimerEvent: {}
+[0.831004] (arm_vrpn_pubsub) StdoutLine: {'line': b'\x1b[35m\x1b[1mConsolidate compiler generated dependencies of target arm_mocap_pubsub\x1b[0m\n'}
+[0.832039] (arm_vrpn_pubsub) StdoutLine: {'line': b'[100%] Built target arm_mocap_pubsub\n'}
+[0.833298] (vrpn_mocap) JobProgress: {'identifier': 'vrpn_mocap', 'progress': 'cmake'}
+[0.834750] (vrpn_mocap) Command: {'cmd': ['/usr/bin/cmake', '/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap', '-DCMAKE_INSTALL_PREFIX=/home/jeevan/Developer/Soft-Robotic-Arm/install/vrpn_mocap'], 'cwd': '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'jeevan'), ('XDG_SESSION_TYPE', 'x11'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/jeevan'), ('OLDPWD', '/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws'), ('DESKTOP_SESSION', 'ubuntu-xorg'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/terminator.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('MANAGERPID', '70962'), ('SYSTEMD_EXEC_PID', '71323'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1001/bus'), ('COLORTERM', 'truecolor'), ('TERMINATOR_DBUS_NAME', 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '175548'), ('IM_CONFIG_PHASE', '1'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'jeevan'), ('JOURNAL_STREAM', '8:1739408'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'jeevan'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/g1-lab:@/tmp/.ICE-unix/71295,unix/g1-lab:/tmp/.ICE-unix/71295'), ('INVOCATION_ID', '96bcfb8d3f254d4ca69f3e5c1008f6f7'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1001'), ('DISPLAY', ':0'), ('TERMINATOR_DBUS_PATH', '/net/tenshu/Terminator2'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('IBUS_DISABLE_SNOOPER', '1'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu-xorg'), ('XAUTHORITY', '/run/user/1001/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1001/keyring/ssh'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('SHELL', '/bin/bash'), ('TERMINATOR_UUID', 'urn:uuid:29ae67bb-315f-4c84-b707-dc35224ea82f'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu-xorg'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GPG_AGENT_INFO', '/run/user/1001/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap'), ('LC_ALL', 'en_US.UTF-8'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu-xorg:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu-xorg:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[0.839487] (arm_vrpn_pubsub) CommandEnded: {'returncode': 0}
+[0.844310] (arm_vrpn_pubsub) JobProgress: {'identifier': 'arm_vrpn_pubsub', 'progress': 'install'}
+[0.891075] (arm_vrpn_pubsub) Command: {'cmd': ['/usr/bin/cmake', '--install', '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub'], 'cwd': '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'jeevan'), ('XDG_SESSION_TYPE', 'x11'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/jeevan'), ('OLDPWD', '/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws'), ('DESKTOP_SESSION', 'ubuntu-xorg'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/terminator.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('MANAGERPID', '70962'), ('SYSTEMD_EXEC_PID', '71323'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1001/bus'), ('COLORTERM', 'truecolor'), ('TERMINATOR_DBUS_NAME', 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '175548'), ('IM_CONFIG_PHASE', '1'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'jeevan'), ('JOURNAL_STREAM', '8:1739408'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'jeevan'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/g1-lab:@/tmp/.ICE-unix/71295,unix/g1-lab:/tmp/.ICE-unix/71295'), ('INVOCATION_ID', '96bcfb8d3f254d4ca69f3e5c1008f6f7'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1001'), ('DISPLAY', ':0'), ('TERMINATOR_DBUS_PATH', '/net/tenshu/Terminator2'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('IBUS_DISABLE_SNOOPER', '1'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu-xorg'), ('XAUTHORITY', '/run/user/1001/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1001/keyring/ssh'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('SHELL', '/bin/bash'), ('TERMINATOR_UUID', 'urn:uuid:29ae67bb-315f-4c84-b707-dc35224ea82f'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu-xorg'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GPG_AGENT_INFO', '/run/user/1001/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub'), ('LC_ALL', 'en_US.UTF-8'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu-xorg:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu-xorg:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[0.913221] (-) TimerEvent: {}
+[0.913968] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[0.919580] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/lib/arm_vrpn_pubsub/arm_mocap_pubsub\n'}
+[0.923615] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/ament_index/resource_index/package_run_dependencies/arm_vrpn_pubsub\n'}
+[0.923885] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/ament_index/resource_index/parent_prefix_path/arm_vrpn_pubsub\n'}
+[0.928130] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/ament_prefix_path.sh\n'}
+[0.930826] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/ament_prefix_path.dsv\n'}
+[0.931090] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/path.sh\n'}
+[0.931492] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/environment/path.dsv\n'}
+[0.931842] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.bash\n'}
+[0.932082] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.sh\n'}
+[0.932287] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.zsh\n'}
+[0.932465] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/local_setup.dsv\n'}
+[0.932691] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Installing: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/package.dsv\n'}
+[0.933533] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/ament_index/resource_index/packages/arm_vrpn_pubsub\n'}
+[0.934093] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/cmake/arm_vrpn_pubsubConfig.cmake\n'}
+[0.934343] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Up-to-date: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/cmake/arm_vrpn_pubsubConfig-version.cmake\n'}
+[0.934531] (arm_vrpn_pubsub) StdoutLine: {'line': b'-- Installing: /home/jeevan/Developer/Soft-Robotic-Arm/install/arm_vrpn_pubsub/share/arm_vrpn_pubsub/package.xml\n'}
+[0.940846] (arm_vrpn_pubsub) CommandEnded: {'returncode': 0}
+[1.014145] (-) TimerEvent: {}
+[1.047122] (arm_vrpn_pubsub) JobEnded: {'identifier': 'arm_vrpn_pubsub', 'rc': 0}
+[1.114993] (-) TimerEvent: {}
+[1.216661] (-) TimerEvent: {}
+[1.251656] (vrpn_mocap) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[1.317005] (-) TimerEvent: {}
+[1.417860] (-) TimerEvent: {}
+[1.504517] (vrpn_mocap) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[1.518147] (-) TimerEvent: {}
+[1.537247] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[1.619004] (-) TimerEvent: {}
+[1.720117] (-) TimerEvent: {}
+[1.737972] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[1.756515] (vrpn_mocap) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[1.773692] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[1.777071] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[1.792966] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[1.821415] (-) TimerEvent: {}
+[1.922958] (-) TimerEvent: {}
+[2.023517] (-) TimerEvent: {}
+[2.102594] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[2.124118] (-) TimerEvent: {}
+[2.126598] (vrpn_mocap) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[2.128144] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[2.133539] (vrpn_mocap) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[2.169305] (vrpn_mocap) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[2.224626] (-) TimerEvent: {}
+[2.313479] (my-test-package) Command: {'cmd': ['/usr/bin/python3', '-W', 'ignore:setup.py install is deprecated', '-W', 'ignore:easy_install command is deprecated', 'setup.py', 'egg_info', '--egg-base', '../../../../../../../../build/my-test-package', 'build', '--build-base', '/home/jeevan/Developer/Soft-Robotic-Arm/build/my-test-package/build', 'install', '--record', '/home/jeevan/Developer/Soft-Robotic-Arm/build/my-test-package/install.log', '--single-version-externally-managed'], 'cwd': '/home/jeevan/Developer/Soft-Robotic-Arm/venv/lib/python3.10/site-packages/pkg_resources/tests/data/my-test-package-source', 'env': {'GJS_DEBUG_TOPICS': 'JS ERROR;JS LOG', 'LESSOPEN': '| /usr/bin/lesspipe %s', 'USER': 'jeevan', 'XDG_SESSION_TYPE': 'x11', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib', 'HOME': '/home/jeevan', 'OLDPWD': '/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws', 'DESKTOP_SESSION': 'ubuntu-xorg', 'GIO_LAUNCHED_DESKTOP_FILE': '/usr/share/applications/terminator.desktop', 'ROS_PYTHON_VERSION': '3', 'GNOME_SHELL_SESSION_MODE': 'ubuntu', 'GTK_MODULES': 'gail:atk-bridge', 'MANAGERPID': '70962', 'SYSTEMD_EXEC_PID': '71323', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1001/bus', 'COLORTERM': 'truecolor', 'TERMINATOR_DBUS_NAME': 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873', 'GIO_LAUNCHED_DESKTOP_FILE_PID': '175548', 'IM_CONFIG_PHASE': '1', 'ROS_DISTRO': 'humble', 'GTK_IM_MODULE': 'ibus', 'LOGNAME': 'jeevan', 'JOURNAL_STREAM': '8:1739408', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'XDG_SESSION_CLASS': 'user', 'USERNAME': 'jeevan', 'TERM': 'xterm-256color', 'GNOME_DESKTOP_SESSION_ID': 'this-is-deprecated', 'ROS_LOCALHOST_ONLY': '0', 'WINDOWPATH': '2', 'PATH': '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin', 'SESSION_MANAGER': 'local/g1-lab:@/tmp/.ICE-unix/71295,unix/g1-lab:/tmp/.ICE-unix/71295', 'INVOCATION_ID': '96bcfb8d3f254d4ca69f3e5c1008f6f7', 'XDG_MENU_PREFIX': 'gnome-', 'XDG_RUNTIME_DIR': '/run/user/1001', 'DISPLAY': ':0', 'TERMINATOR_DBUS_PATH': '/net/tenshu/Terminator2', 'LANG': 'en_US.UTF-8', 'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'IBUS_DISABLE_SNOOPER': '1', 'XMODIFIERS': '@im=ibus', 'XDG_SESSION_DESKTOP': 'ubuntu-xorg', 'XAUTHORITY': '/run/user/1001/gdm/Xauthority', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:', 'SSH_AGENT_LAUNCHER': 'gnome-keyring', 'SSH_AUTH_SOCK': '/run/user/1001/keyring/ssh', 'AMENT_PREFIX_PATH': '/opt/ros/humble', 'SHELL': '/bin/bash', 'TERMINATOR_UUID': 'urn:uuid:29ae67bb-315f-4c84-b707-dc35224ea82f', 'QT_ACCESSIBILITY': '1', 'GDMSESSION': 'ubuntu-xorg', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GPG_AGENT_INFO': '/run/user/1001/gnupg/S.gpg-agent:0:1', 'GJS_DEBUG_OUTPUT': 'stderr', 'QT_IM_MODULE': 'ibus', 'PWD': '/home/jeevan/Developer/Soft-Robotic-Arm/build/my-test-package', 'LC_ALL': 'en_US.UTF-8', 'XDG_CONFIG_DIRS': '/etc/xdg/xdg-ubuntu-xorg:/etc/xdg', 'XDG_DATA_DIRS': '/usr/share/ubuntu-xorg:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/jeevan/Developer/Soft-Robotic-Arm/build/my-test-package/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/jeevan/Developer/Soft-Robotic-Arm/install/my-test-package/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages', 'COLCON': '1', 'VTE_VERSION': '6800'}, 'shell': False}
+[2.326328] (-) TimerEvent: {}
+[2.428707] (-) TimerEvent: {}
+[2.531087] (-) TimerEvent: {}
+[2.632530] (-) TimerEvent: {}
+[2.733931] (-) TimerEvent: {}
+[2.770303] (vrpn_mocap) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter \n'}
+[2.834361] (-) TimerEvent: {}
+[2.935551] (-) TimerEvent: {}
+[3.036407] (-) TimerEvent: {}
+[3.105498] (vrpn_mocap) StdoutLine: {'line': b'-- Found quatlib: /opt/ros/humble/lib/libquat.a  \n'}
+[3.114836] (vrpn_mocap) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[3.136882] (-) TimerEvent: {}
+[3.186454] (my-test-package) StdoutLine: {'line': b'running egg_info\n'}
+[3.188165] (my-test-package) StdoutLine: {'line': b'creating ../../../../../../../../build/my-test-package/my_test_package.egg-info\n'}
+[3.188901] (my-test-package) StdoutLine: {'line': b'writing ../../../../../../../../build/my-test-package/my_test_package.egg-info/PKG-INFO\n'}
+[3.189396] (my-test-package) StdoutLine: {'line': b'writing dependency_links to ../../../../../../../../build/my-test-package/my_test_package.egg-info/dependency_links.txt\n'}
+[3.190235] (my-test-package) StdoutLine: {'line': b'writing top-level names to ../../../../../../../../build/my-test-package/my_test_package.egg-info/top_level.txt\n'}
+[3.190512] (my-test-package) StdoutLine: {'line': b"writing manifest file '../../../../../../../../build/my-test-package/my_test_package.egg-info/SOURCES.txt'\n"}
+[3.195246] (my-test-package) StdoutLine: {'line': b"reading manifest file '../../../../../../../../build/my-test-package/my_test_package.egg-info/SOURCES.txt'\n"}
+[3.199343] (my-test-package) StdoutLine: {'line': b"writing manifest file '../../../../../../../../build/my-test-package/my_test_package.egg-info/SOURCES.txt'\n"}
+[3.199919] (my-test-package) StdoutLine: {'line': b'running build\n'}
+[3.200199] (my-test-package) StdoutLine: {'line': b'running install\n'}
+[3.200533] (my-test-package) StdoutLine: {'line': b'running install_egg_info\n'}
+[3.209135] (my-test-package) StdoutLine: {'line': b'Copying ../../../../../../../../build/my-test-package/my_test_package.egg-info to /home/jeevan/Developer/Soft-Robotic-Arm/install/my-test-package/lib/python3.10/site-packages/my_test_package-1.0-py3.10.egg-info\n'}
+[3.211864] (my-test-package) StdoutLine: {'line': b'running install_scripts\n'}
+[3.237133] (-) TimerEvent: {}
+[3.281270] (my-test-package) StdoutLine: {'line': b"writing list of installed files to '/home/jeevan/Developer/Soft-Robotic-Arm/build/my-test-package/install.log'\n"}
+[3.337288] (-) TimerEvent: {}
+[3.351834] (vrpn_mocap) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[3.355197] (vrpn_mocap) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[3.405363] (my-test-package) CommandEnded: {'returncode': 0}
+[3.432079] (my-test-package) JobEnded: {'identifier': 'my-test-package', 'rc': 0}
+[3.437580] (-) TimerEvent: {}
+[3.538359] (-) TimerEvent: {}
+[3.540396] (vrpn_mocap) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[3.543860] (vrpn_mocap) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[3.547201] (vrpn_mocap) StdoutLine: {'line': b'-- Found VRPN: /opt/ros/humble/lib/libvrpn.a  \n'}
+[3.553674] (vrpn_mocap) StdoutLine: {'line': b'-- Found rclcpp: 16.0.16 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[3.638503] (-) TimerEvent: {}
+[3.639294] (vrpn_mocap) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.7 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[3.651699] (vrpn_mocap) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.7 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[3.677870] (vrpn_mocap) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.7 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[3.720912] (vrpn_mocap) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[3.738630] (-) TimerEvent: {}
+[3.758241] (vrpn_mocap) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[3.838801] (-) TimerEvent: {}
+[3.911931] (vrpn_mocap) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[3.921580] (vrpn_mocap) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.9 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[3.938937] (-) TimerEvent: {}
+[4.039329] (-) TimerEvent: {}
+[4.139757] (-) TimerEvent: {}
+[4.146309] (vrpn_mocap) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  \n'}
+[4.194332] (vrpn_mocap) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/humble/include  \n'}
+[4.239880] (-) TimerEvent: {}
+[4.284110] (vrpn_mocap) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[4.340014] (-) TimerEvent: {}
+[4.440441] (-) TimerEvent: {}
+[4.450962] (vrpn_mocap) StdoutLine: {'line': b'-- Found geometry_msgs: 4.9.0 (/opt/ros/humble/share/geometry_msgs/cmake)\n'}
+[4.488457] (vrpn_mocap) StdoutLine: {'line': b'-- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/share/eigen3_cmake_module/cmake)\n'}
+[4.503061] (vrpn_mocap) StdoutLine: {'line': b'-- Found Eigen3: TRUE (found version "3.4.0") \n'}
+[4.507358] (vrpn_mocap) StdoutLine: {'line': b'-- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)\n'}
+[4.541002] (-) TimerEvent: {}
+[4.648655] (-) TimerEvent: {}
+[4.751440] (-) TimerEvent: {}
+[4.852338] (-) TimerEvent: {}
+[4.954216] (-) TimerEvent: {}
+[4.955364] (vrpn_mocap) StdoutLine: {'line': b"-- Added test 'copyright' to check source files copyright and LICENSE\n"}
+[4.980119] (vrpn_mocap) StdoutLine: {'line': b"-- Added test 'cppcheck' to perform static code analysis on C / C++ code\n"}
+[4.980488] (vrpn_mocap) StdoutLine: {'line': b'-- Configured cppcheck include dirs: /opt/ros/humble/include/rclcpp;/opt/ros/humble/include/rclcpp;$<BUILD_INTERFACE:/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap/include>\n'}
+[4.982669] (vrpn_mocap) StdoutLine: {'line': b'-- Configured cppcheck exclude dirs and/or files: \n'}
+[4.997771] (vrpn_mocap) StdoutLine: {'line': b"-- Added test 'cpplint' to check C / C++ code against the Google style\n"}
+[4.998561] (vrpn_mocap) StdoutLine: {'line': b'-- Configured cpplint exclude dirs and/or files: \n'}
+[5.002616] (vrpn_mocap) StdoutLine: {'line': b"-- Added test 'lint_cmake' to check CMake code style\n"}
+[5.021230] (vrpn_mocap) StdoutLine: {'line': b"-- Added test 'uncrustify' to check C / C++ code style\n"}
+[5.022122] (vrpn_mocap) StdoutLine: {'line': b'-- Configured uncrustify additional arguments: \n'}
+[5.024247] (vrpn_mocap) StdoutLine: {'line': b"-- Added test 'xmllint' to check XML markup files\n"}
+[5.033377] (vrpn_mocap) StdoutLine: {'line': b'-- Configuring done\n'}
+[5.054531] (-) TimerEvent: {}
+[5.115857] (vrpn_mocap) StdoutLine: {'line': b'-- Generating done\n'}
+[5.135229] (vrpn_mocap) StdoutLine: {'line': b'-- Build files have been written to: /home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap\n'}
+[5.154762] (-) TimerEvent: {}
+[5.185904] (vrpn_mocap) CommandEnded: {'returncode': 0}
+[5.191204] (vrpn_mocap) JobProgress: {'identifier': 'vrpn_mocap', 'progress': 'build'}
+[5.191259] (vrpn_mocap) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap', '--', '-j4', '-l4'], 'cwd': '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'jeevan'), ('XDG_SESSION_TYPE', 'x11'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/jeevan'), ('OLDPWD', '/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws'), ('DESKTOP_SESSION', 'ubuntu-xorg'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/terminator.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('MANAGERPID', '70962'), ('SYSTEMD_EXEC_PID', '71323'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1001/bus'), ('COLORTERM', 'truecolor'), ('TERMINATOR_DBUS_NAME', 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '175548'), ('IM_CONFIG_PHASE', '1'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'jeevan'), ('JOURNAL_STREAM', '8:1739408'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'jeevan'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/g1-lab:@/tmp/.ICE-unix/71295,unix/g1-lab:/tmp/.ICE-unix/71295'), ('INVOCATION_ID', '96bcfb8d3f254d4ca69f3e5c1008f6f7'), ('XDG_MENU_PREFIX', 'gnome-'), ('XDG_RUNTIME_DIR', '/run/user/1001'), ('DISPLAY', ':0'), ('TERMINATOR_DBUS_PATH', '/net/tenshu/Terminator2'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('IBUS_DISABLE_SNOOPER', '1'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu-xorg'), ('XAUTHORITY', '/run/user/1001/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1001/keyring/ssh'), ('AMENT_PREFIX_PATH', '/opt/ros/humble'), ('SHELL', '/bin/bash'), ('TERMINATOR_UUID', 'urn:uuid:29ae67bb-315f-4c84-b707-dc35224ea82f'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu-xorg'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GPG_AGENT_INFO', '/run/user/1001/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap'), ('LC_ALL', 'en_US.UTF-8'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu-xorg:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu-xorg:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/opt/ros/humble')]), 'shell': False}
+[5.255091] (-) TimerEvent: {}
+[5.345813] (vrpn_mocap) StdoutLine: {'line': b'[ 40%] \x1b[32mBuilding CXX object CMakeFiles/vrpn_mocap.dir/src/client.cpp.o\x1b[0m\n'}
+[5.349238] (vrpn_mocap) StdoutLine: {'line': b'[ 40%] \x1b[32mBuilding CXX object CMakeFiles/vrpn_mocap.dir/src/tracker.cpp.o\x1b[0m\n'}
+[5.355213] (-) TimerEvent: {}
+[5.455594] (-) TimerEvent: {}
+[5.556045] (-) TimerEvent: {}
+[5.656675] (-) TimerEvent: {}
+[5.757164] (-) TimerEvent: {}
+[5.857759] (-) TimerEvent: {}
+[5.958589] (-) TimerEvent: {}
+[6.060681] (-) TimerEvent: {}
+[6.162061] (-) TimerEvent: {}
+[6.265302] (-) TimerEvent: {}
+[6.366589] (-) TimerEvent: {}
+[6.469336] (-) TimerEvent: {}
+[6.570804] (-) TimerEvent: {}
+[6.675146] (-) TimerEvent: {}
+[6.775926] (-) TimerEvent: {}
+[6.877325] (-) TimerEvent: {}
+[6.980110] (-) TimerEvent: {}
+[7.080724] (-) TimerEvent: {}
+[7.182019] (-) TimerEvent: {}
+[7.283058] (-) TimerEvent: {}
+[7.386280] (-) TimerEvent: {}
+[7.488374] (-) TimerEvent: {}
+[7.592437] (-) TimerEvent: {}
+[7.693528] (-) TimerEvent: {}
+[7.798662] (-) TimerEvent: {}
+[7.900207] (-) TimerEvent: {}
+[8.003274] (-) TimerEvent: {}
+[8.103713] (-) TimerEvent: {}
+[8.205761] (-) TimerEvent: {}
+[8.306465] (-) TimerEvent: {}
+[8.407195] (-) TimerEvent: {}
+[8.508033] (-) TimerEvent: {}
+[8.609147] (-) TimerEvent: {}
+[8.710295] (-) TimerEvent: {}
+[8.810858] (-) TimerEvent: {}
+[8.911955] (-) TimerEvent: {}
+[9.016550] (-) TimerEvent: {}
+[9.125773] (-) TimerEvent: {}
+[9.230546] (-) TimerEvent: {}
+[9.335498] (-) TimerEvent: {}
+[9.438751] (-) TimerEvent: {}
+[9.540294] (-) TimerEvent: {}
+[9.642110] (-) TimerEvent: {}
+[9.744379] (-) TimerEvent: {}
+[9.845109] (-) TimerEvent: {}
+[9.947645] (-) TimerEvent: {}
+[10.051685] (-) TimerEvent: {}
+[10.153069] (-) TimerEvent: {}
+[10.255530] (-) TimerEvent: {}
+[10.356794] (-) TimerEvent: {}
+[10.457803] (-) TimerEvent: {}
+[10.558392] (-) TimerEvent: {}
+[10.659015] (-) TimerEvent: {}
+[10.759669] (-) TimerEvent: {}
+[10.861971] (-) TimerEvent: {}
+[10.966853] (-) TimerEvent: {}
+[11.074533] (-) TimerEvent: {}
+[11.181742] (-) TimerEvent: {}
+[11.289677] (-) TimerEvent: {}
+[11.390776] (-) TimerEvent: {}
+[11.498636] (-) TimerEvent: {}
+[11.606853] (-) TimerEvent: {}
+[11.711450] (-) TimerEvent: {}
+[11.817464] (-) TimerEvent: {}
+[11.920131] (-) TimerEvent: {}
+[12.035608] (-) TimerEvent: {}
+[12.141627] (-) TimerEvent: {}
+[12.244125] (-) TimerEvent: {}
+[12.348250] (-) TimerEvent: {}
+[12.454013] (-) TimerEvent: {}
+[12.555828] (-) TimerEvent: {}
+[12.656555] (-) TimerEvent: {}
+[12.765400] (-) TimerEvent: {}
+[12.876750] (-) TimerEvent: {}
+[13.013303] (-) TimerEvent: {}
+[13.254532] (-) TimerEvent: {}
+[13.464026] (-) TimerEvent: {}
+[13.884831] (-) TimerEvent: {}
+[14.454152] (-) TimerEvent: {}
+[14.914237] (-) TimerEvent: {}
+[15.124784] (-) TimerEvent: {}
+[15.381844] (-) TimerEvent: {}
+[15.682407] (-) TimerEvent: {}
+[15.926137] (-) TimerEvent: {}
+[16.176161] (-) TimerEvent: {}
+[16.469774] (-) TimerEvent: {}
+[16.915541] (-) TimerEvent: {}
+[17.325749] (-) TimerEvent: {}
+[17.517640] (-) TimerEvent: {}
+[17.789798] (-) TimerEvent: {}
+[18.255319] (-) TimerEvent: {}
+[18.536451] (-) TimerEvent: {}
+[18.789616] (-) TimerEvent: {}
+[19.261711] (-) TimerEvent: {}
+[19.519892] (-) TimerEvent: {}
+[20.288520] (-) TimerEvent: {}
+[20.664941] (-) TimerEvent: {}
+[21.319620] (-) TimerEvent: {}
+[21.830639] (-) TimerEvent: {}
+[22.565483] (-) TimerEvent: {}
+[22.838241] (-) TimerEvent: {}
+[23.342969] (-) TimerEvent: {}
+[23.623030] (-) TimerEvent: {}
+[24.406850] (-) TimerEvent: {}
+[25.264997] (-) TimerEvent: {}
+[25.890576] (-) TimerEvent: {}
+[26.717535] (-) TimerEvent: {}
+[27.682770] (-) TimerEvent: {}
+[28.440751] (-) TimerEvent: {}
+[29.245510] (-) TimerEvent: {}
+[29.923590] (-) TimerEvent: {}
+[30.810191] (-) TimerEvent: {}
+[31.647753] (-) TimerEvent: {}
+[32.335950] (-) TimerEvent: {}
+[33.055014] (-) TimerEvent: {}
+[34.273562] (-) TimerEvent: {}
+[35.107975] (-) TimerEvent: {}
+[35.767959] (-) TimerEvent: {}
+[36.573601] (-) TimerEvent: {}
+[37.497996] (-) TimerEvent: {}
+[38.555871] (-) TimerEvent: {}
+[39.112251] (-) TimerEvent: {}
+[39.739884] (-) TimerEvent: {}
+[40.099720] (-) TimerEvent: {}
+[40.707735] (-) TimerEvent: {}
+[41.107375] (-) TimerEvent: {}
+[41.383480] (-) TimerEvent: {}
+[41.627988] (-) TimerEvent: {}
+[41.913185] (-) TimerEvent: {}
+[42.587206] (-) TimerEvent: {}
+[43.162456] (-) TimerEvent: {}
+[43.849979] (-) TimerEvent: {}
+[44.319166] (-) TimerEvent: {}
+[44.532030] (-) TimerEvent: {}
+[44.817196] (-) TimerEvent: {}
+[45.080141] (-) TimerEvent: {}
+[45.602992] (-) TimerEvent: {}
+[46.228280] (-) TimerEvent: {}
+[46.463086] (-) TimerEvent: {}
+[47.008635] (-) TimerEvent: {}
+[47.448886] (-) TimerEvent: {}
+[47.690276] (-) TimerEvent: {}
+[47.934088] (-) TimerEvent: {}
+[48.162509] (-) TimerEvent: {}
+[48.742771] (-) TimerEvent: {}
+[48.977600] (-) TimerEvent: {}
+[49.584815] (-) TimerEvent: {}
+[50.156189] (-) TimerEvent: {}
+[50.393269] (-) TimerEvent: {}
+[50.766453] (-) TimerEvent: {}
+[51.271580] (-) TimerEvent: {}
+[51.714310] (-) TimerEvent: {}
+[52.041179] (-) TimerEvent: {}
+[52.404669] (-) TimerEvent: {}
+[52.727809] (-) TimerEvent: {}
+[53.182558] (-) TimerEvent: {}
+[53.788056] (-) TimerEvent: {}
+[54.251587] (-) TimerEvent: {}
+[54.460699] (-) TimerEvent: {}
+[54.790089] (-) TimerEvent: {}
+[55.129588] (-) TimerEvent: {}
+[55.356057] (-) TimerEvent: {}
+[55.872387] (-) TimerEvent: {}
+[56.196736] (-) TimerEvent: {}
+[56.613616] (-) TimerEvent: {}
+[56.904381] (-) TimerEvent: {}
+[58.058069] (-) TimerEvent: {}
+[59.034243] (-) TimerEvent: {}
+[59.658890] (-) TimerEvent: {}
+[60.333427] (-) TimerEvent: {}
+[61.154487] (-) TimerEvent: {}
+[61.990675] (-) TimerEvent: {}
+[62.655047] (-) TimerEvent: {}
+[63.289501] (-) TimerEvent: {}
+[63.798125] (-) TimerEvent: {}
+[64.887785] (-) TimerEvent: {}
+[67.260627] (-) TimerEvent: {}
+[68.694666] (-) TimerEvent: {}
+[70.567551] (-) TimerEvent: {}
+[72.077706] (-) TimerEvent: {}
+[73.345890] (-) TimerEvent: {}
+[74.690558] (-) TimerEvent: {}
+[75.760472] (-) TimerEvent: {}
+[77.150739] (-) TimerEvent: {}
+[78.448832] (-) TimerEvent: {}
+[80.033485] (-) TimerEvent: {}
+[81.110037] (-) TimerEvent: {}
+[82.573660] (-) TimerEvent: {}
+[83.576921] (-) TimerEvent: {}
+[84.379905] (-) TimerEvent: {}
+[85.653002] (-) TimerEvent: {}
+[86.722682] (-) TimerEvent: {}
+[87.154594] (-) TimerEvent: {}
+[87.505234] (-) TimerEvent: {}
+[87.747836] (-) TimerEvent: {}
+[88.298911] (-) TimerEvent: {}
+[88.880974] (-) TimerEvent: {}
+[89.464835] (-) TimerEvent: {}
+[90.436165] (-) TimerEvent: {}
+[92.293691] (-) TimerEvent: {}
+[92.987014] (-) TimerEvent: {}
+[93.648246] (-) TimerEvent: {}
+[94.332024] (-) TimerEvent: {}
+[95.248686] (-) TimerEvent: {}
+[96.396518] (-) TimerEvent: {}
+[97.209489] (-) TimerEvent: {}
+[97.848077] (-) TimerEvent: {}
+[98.489220] (-) TimerEvent: {}
+[99.333384] (-) TimerEvent: {}
+[100.274467] (-) TimerEvent: {}
+[101.230701] (-) TimerEvent: {}
+[102.103967] (-) TimerEvent: {}
+[103.128646] (-) TimerEvent: {}
+[103.996633] (-) TimerEvent: {}
+[104.806383] (-) TimerEvent: {}
+[105.573324] (-) TimerEvent: {}
+[106.505301] (-) TimerEvent: {}
+[107.933655] (-) TimerEvent: {}
+[108.844626] (-) TimerEvent: {}
+[109.714709] (-) TimerEvent: {}
+[111.029572] (-) TimerEvent: {}
+[111.662385] (-) TimerEvent: {}
+[111.858644] (-) TimerEvent: {}
+[112.652311] (-) TimerEvent: {}
+[113.151847] (-) TimerEvent: {}
+[113.861139] (-) TimerEvent: {}
+[115.245833] (-) TimerEvent: {}
+[116.809500] (-) TimerEvent: {}
+[118.466859] (-) TimerEvent: {}
+[119.986961] (-) TimerEvent: {}
+[122.121953] (-) TimerEvent: {}
+[123.764349] (-) TimerEvent: {}
+[123.987508] (-) TimerEvent: {}
+[124.359059] (-) TimerEvent: {}
+[124.607224] (-) TimerEvent: {}
+[125.073459] (-) TimerEvent: {}
+[125.412203] (-) TimerEvent: {}
+[125.648123] (-) TimerEvent: {}
+[125.880777] (-) TimerEvent: {}
+[126.419408] (-) TimerEvent: {}
+[126.643881] (-) TimerEvent: {}
+[126.900260] (-) TimerEvent: {}
+[127.660845] (-) TimerEvent: {}
+[128.426767] (-) TimerEvent: {}
+[128.680708] (-) TimerEvent: {}
+[129.452428] (-) TimerEvent: {}
+                                                                                                                                                                      

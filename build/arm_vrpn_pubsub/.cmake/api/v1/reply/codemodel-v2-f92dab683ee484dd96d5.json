@@ -1,0 +1,79 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-36c50cbaee5d13608c0e.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "arm_vrpn_pubsub",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "arm_mocap_pubsub::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-arm_mocap_pubsub-2066a16b24b5397e7e32.json",
+					"name" : "arm_mocap_pubsub",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "arm_vrpn_pubsub_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-arm_vrpn_pubsub_uninstall-b1ae4af1d851c59234da.json",
+					"name" : "arm_vrpn_pubsub_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-d21bc015f4e0dfabfffd.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub",
+		"source" : "/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/arm_vrpn-main"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

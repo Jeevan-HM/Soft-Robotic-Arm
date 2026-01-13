@@ -1,0 +1,3 @@
+Invoking command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap -DCMAKE_INSTALL_PREFIX=/home/jeevan/Developer/Soft-Robotic-Arm/install/vrpn_mocap
+Invoked command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap -DCMAKE_INSTALL_PREFIX=/home/jeevan/Developer/Soft-Robotic-Arm/install/vrpn_mocap
+Invoking command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap -- -j4 -l4

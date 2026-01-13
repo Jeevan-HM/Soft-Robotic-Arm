@@ -1,0 +1,54 @@
+[0.814s] Invoking command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap -DCMAKE_INSTALL_PREFIX=/home/jeevan/Developer/Soft-Robotic-Arm/install/vrpn_mocap
+[1.228s] -- The C compiler identification is GNU 11.4.0
+[1.480s] -- The CXX compiler identification is GNU 11.4.0
+[1.513s] -- Detecting C compiler ABI info
+[1.714s] -- Detecting C compiler ABI info - done
+[1.732s] -- Check for working C compiler: /usr/bin/cc - skipped
+[1.749s] -- Detecting C compile features
+[1.753s] -- Detecting C compile features - done
+[1.770s] -- Detecting CXX compiler ABI info
+[2.078s] -- Detecting CXX compiler ABI info - done
+[2.102s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[2.104s] -- Detecting CXX compile features
+[2.110s] -- Detecting CXX compile features - done
+[2.145s] -- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)
+[2.746s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[3.081s] -- Found quatlib: /opt/ros/humble/lib/libquat.a  
+[3.091s] -- Looking for pthread.h
+[3.328s] -- Looking for pthread.h - found
+[3.331s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[3.516s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[3.520s] -- Found Threads: TRUE  
+[3.523s] -- Found VRPN: /opt/ros/humble/lib/libvrpn.a  
+[3.529s] -- Found rclcpp: 16.0.16 (/opt/ros/humble/share/rclcpp/cmake)
+[3.615s] -- Found rosidl_generator_c: 3.1.7 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[3.628s] -- Found rosidl_adapter: 3.1.7 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[3.655s] -- Found rosidl_generator_cpp: 3.1.7 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[3.697s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[3.734s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[3.888s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[3.897s] -- Found rmw_fastrtps_cpp: 6.2.9 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[4.122s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[4.170s] -- Found FastRTPS: /opt/ros/humble/include  
+[4.260s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[4.428s] -- Found geometry_msgs: 4.9.0 (/opt/ros/humble/share/geometry_msgs/cmake)
+[4.464s] -- Found eigen3_cmake_module: 0.1.1 (/opt/ros/humble/share/eigen3_cmake_module/cmake)
+[4.479s] -- Found Eigen3: TRUE (found version "3.4.0") 
+[4.483s] -- Found ament_lint_auto: 0.12.14 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[4.931s] -- Added test 'copyright' to check source files copyright and LICENSE
+[4.956s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[4.956s] -- Configured cppcheck include dirs: /opt/ros/humble/include/rclcpp;/opt/ros/humble/include/rclcpp;$<BUILD_INTERFACE:/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap/include>
+[4.960s] -- Configured cppcheck exclude dirs and/or files: 
+[4.974s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[4.974s] -- Configured cpplint exclude dirs and/or files: 
+[4.979s] -- Added test 'lint_cmake' to check CMake code style
+[4.997s] -- Added test 'uncrustify' to check C / C++ code style
+[4.998s] -- Configured uncrustify additional arguments: 
+[5.000s] -- Added test 'xmllint' to check XML markup files
+[5.009s] -- Configuring done
+[5.093s] -- Generating done
+[5.111s] -- Build files have been written to: /home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap
+[5.166s] Invoked command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap -DCMAKE_INSTALL_PREFIX=/home/jeevan/Developer/Soft-Robotic-Arm/install/vrpn_mocap
+[5.167s] Invoking command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap -- -j4 -l4
+[5.322s] [ 40%] [32mBuilding CXX object CMakeFiles/vrpn_mocap.dir/src/client.cpp.o[0m
+[5.326s] [ 40%] [32mBuilding CXX object CMakeFiles/vrpn_mocap.dir/src/tracker.cpp.o[0m

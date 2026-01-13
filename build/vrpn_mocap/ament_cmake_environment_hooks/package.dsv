@@ -1,0 +1,4 @@
+source;share/vrpn_mocap/local_setup.bash
+source;share/vrpn_mocap/local_setup.dsv
+source;share/vrpn_mocap/local_setup.sh
+source;share/vrpn_mocap/local_setup.zsh

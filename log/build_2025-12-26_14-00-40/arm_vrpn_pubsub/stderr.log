@@ -1,0 +1,11 @@
+[01m[K/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/arm_vrpn-main/src/arm_mocap_pubsub.cpp:[m[K In member function ‘[01m[Kvoid Mocapzmq_pub::topic_callback1(geometry_msgs::msg::PoseStamped_<std::allocator<void> >::SharedPtr)[m[K’:
+[01m[K/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/arm_vrpn-main/src/arm_mocap_pubsub.cpp:86:21:[m[K [01;35m[Kwarning: [m[K‘[01m[Kbool zmq::detail::socket_base::send(zmq::message_t&, int)[m[K’ is deprecated: from 4.3.1, use send taking message_t and send_flags [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wdeprecated-declarations-Wdeprecated-declarations]8;;[m[K]
+   86 |       [01;35m[Kpublisher.send(message)[m[K;
+      |       [01;35m[K~~~~~~~~~~~~~~^~~~~~~~~[m[K
+In file included from [01m[K/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/arm_vrpn-main/src/arm_mocap_pubsub.cpp:10[m[K:
+[01m[K/usr/local/include/zmq.hpp:1928:10:[m[K [01;36m[Knote: [m[Kdeclared here
+ 1928 |     bool [01;36m[Ksend[m[K(message_t &msg_,
+      |          [01;36m[K^~~~[m[K
+[01m[K/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/arm_vrpn-main/src/arm_mocap_pubsub.cpp:73:13:[m[K [01;35m[Kwarning: [m[Kunused variable ‘[01m[Kdata[m[K’ [[01;35m[K]8;;https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wunused-variable-Wunused-variable]8;;[m[K]
+   73 |       float [01;35m[Kdata[m[K[21] = {x1_mocap,y1_mocap,z1_mocap,
+      |             [01;35m[K^~~~[m[K

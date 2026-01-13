@@ -1,0 +1,88 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-ab6614367522af70403a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "vrpn_mocap",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "client_node::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-client_node-1aac6b19bb899753aff4.json",
+					"name" : "client_node",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-a31a3bf80540d3f40a1c.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vrpn_mocap::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vrpn_mocap-127d56ef6e44da021cff.json",
+					"name" : "vrpn_mocap",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vrpn_mocap_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vrpn_mocap_uninstall-3dc8b684d821bc37936a.json",
+					"name" : "vrpn_mocap_uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/jeevan/Developer/Soft-Robotic-Arm/build/vrpn_mocap",
+		"source" : "/home/jeevan/Developer/Soft-Robotic-Arm/colcon_ws/src/vrpn_mocap"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}
