@@ -143,20 +143,9 @@ class ArduinoManager:
             pass
         return True  # Mocked
 
-    # Note: connect implemented above is just a snippet context, not replacing full class.
-    # The tool will replace the TARGET block.
-    # Wait, I need to target the block carefully.
-    # Let me just replace the Constants section and then the loop logic separately? No, better to do one replace or carefully targeted.
-    # I will replace the constants block first.
-
-    # Oops, tool arguments require specific TargetContent.
-    # I will replace the Constants section.
     pass
 
 
-# STOP. I should use `replace_file_content` just for the constants first, then another call for the loop.
-# Or better, just one call if they are close? They are far apart (Line 80 vs 760).
-# I will make TWO calls.
 # CALL 1: Constants
 
 MOCAP_PORT = "tcp://127.0.0.1:3885"
@@ -1045,7 +1034,7 @@ class Controller:
                 # seg3 -> sinusoid
                 # seg4 -> constant 2.0
 
-                AXIAL_FREQ = 0.1
+                AXIAL_FREQ = 0.03
                 center = p_max / 2.0
                 ampl = p_max / 2.0
 
@@ -1062,7 +1051,7 @@ class Controller:
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
 
                 # Triangular trajectory for segments 2, 3, 4
-                T = 10.0
+                T = 30.0
                 t_cycle = effective_time % T
                 phase_len = T / 3.0
 
@@ -1090,7 +1079,7 @@ class Controller:
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
 
                 indices = [1, 2, 3]  # Segments 2, 3, 4
-                freq = 0.1
+                freq = 0.03
 
                 for k, idx in enumerate(indices):
                     phase = (2.0 * math.pi / 3.0) * k
@@ -1154,8 +1143,11 @@ class Controller:
             with self.data_lock:
                 desired_copy = list(self.desired)
                 measured_copy = [list(m) for m in self.measured]
+                seq_config_copy = self.current_seq_config
 
-            self.logger.log(step_id, desired_copy, measured_copy, mocap_tuple)
+            self.logger.log(
+                step_id, desired_copy, measured_copy, mocap_tuple, seq_config_copy
+            )
             step_id += 1
 
             # Drift correction for 100Hz
