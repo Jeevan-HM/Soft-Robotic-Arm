@@ -81,14 +81,14 @@ WAVE_FUNCTION = "sequence"  # "sequence", "axial", "circular", "triangular", "st
 SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
 SEQ_SEG1_PRESSURES = [2.0, 3.0]
 SEQ_MAX_PRESSURES = [5.0, 10.0]
-SEQ_WAVE_DURATION = 200.0  # Duration for each wave type in the sequence
-SEQ_COOLDOWN_DURATION = 10.0  # Duration of 2psi hold between waves
+SEQ_WAVE_DURATION = 120.0  # Duration for each wave type in the sequence
+SEQ_COOLDOWN_DURATION = 5.0  # Duration of 2psi hold between waves
 SEQ_SEG1_REFILL_PERIOD = 100.0  # Target period for refilling Segment 1
 SEQ_REFILL_ACTION_DURATION = 5.0  # Duration of the refill pause/interruption
 
 # Calculate Experiment Duration
 _num_items = len(SEQ_WAVE_TYPES) * len(SEQ_SEG1_PRESSURES) * len(SEQ_MAX_PRESSURES)
-_raw_duration = 5.0 + _num_items * (SEQ_WAVE_DURATION + SEQ_COOLDOWN_DURATION)
+_raw_duration = 10.0 + _num_items * (SEQ_WAVE_DURATION + SEQ_COOLDOWN_DURATION)
 # Add buffer for refills (approx estimate: 1 refill every 100s taking 5s -> +5%)
 # We add 20% buffer to be safe
 EXPERIMENT_DURATION = _raw_duration * 1.2
@@ -934,11 +934,11 @@ class Controller:
                     "wave": "cooldown",  # Re-use cooldown logic (all 2.0 psi)
                     "seg1": 2.0,
                     "max_p": 0.0,
-                    "duration": 5.0,  # Initial prefill duration
+                    "duration": 10.0,  # Initial prefill duration
                     "offset": 0.0,
                 }
             )
-            simulated_time += 5.0
+            simulated_time += 10.0
             # Reset next refill target
             next_refill_time = simulated_time + self.refill_period
 
@@ -1034,7 +1034,7 @@ class Controller:
                 # seg3 -> sinusoid
                 # seg4 -> constant 2.0
 
-                AXIAL_FREQ = 0.03
+                AXIAL_FREQ = 0.1
                 center = p_max / 2.0
                 ampl = p_max / 2.0
 
@@ -1051,7 +1051,7 @@ class Controller:
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
 
                 # Triangular trajectory for segments 2, 3, 4
-                T = 30.0
+                T = 10.0
                 t_cycle = effective_time % T
                 phase_len = T / 3.0
 
@@ -1079,7 +1079,7 @@ class Controller:
                 desired[0] = 0.0  # Turn OFF Segment 1 during wave
 
                 indices = [1, 2, 3]  # Segments 2, 3, 4
-                freq = 0.03
+                freq = 0.1
 
                 for k, idx in enumerate(indices):
                     phase = (2.0 * math.pi / 3.0) * k
