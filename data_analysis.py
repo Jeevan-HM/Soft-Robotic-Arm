@@ -71,51 +71,78 @@ plt.rcParams.update(
 
 # -- General Settings --
 # EXPERIMENTS_BASE_DIR = "/home/g1/Developer/Thesis/experiments"
-EXPERIMENTS_BASE_DIR = "/home/jeevan/Developer/Soft-Robotic-Arm/experiments"
+# EXPERIMENTS_BASE_DIR = "/home/jeevan/Developer/Soft-Robotic-Arm/experiments"
+EXPERIMENTS_BASE_DIR = "/Users/g1/Developer/Soft-Robotic-Arm/experiments"
 START_TIME_OFFSET_SEC = 0  # Time in seconds to skip at the beginning
 
 # -- Column Names --
 TIME_COL = "time"
 
 
-DESIRED_PRESSURE_COLS = ["pd_3", "pd_7"]
-MEASURED_PRESSURE_SEGMENT1_COLS = ["pm_3_1", "pm_3_2", "pm_3_3", "pm_3_4", "pm_7_1"]
-MEASURED_PRESSURE_SEGMENT2_COLS = ["pm_7_2"]
-MEASURED_PRESSURE_SEGMENT3_COLS = ["pm_7_3"]
-MEASURED_PRESSURE_SEGMENT4_COLS = ["pm_7_4"]
-MOCAP_POS_COLS = ["mocap_3_x", "mocap_3_y", "mocap_3_z"]
-MOCAP_QUAT_COLS = ["mocap_3_qx", "mocap_3_qy", "mocap_3_qz", "mocap_3_qw"]
+# -- Column Name Sets --
 
+# Set 1 (Short names - legacy/current)
+COL_SET_SHORT = {
+    "DESIRED_PRESSURE_COLS": ["pd_3", "pd_7"],
+    "MEASURED_PRESSURE_SEGMENT1_COLS": [
+        "pm_3_1",
+        "pm_3_2",
+        "pm_3_3",
+        "pm_3_4",
+        "pm_7_1",
+    ],
+    "MEASURED_PRESSURE_SEGMENT2_COLS": ["pm_7_2"],
+    "MEASURED_PRESSURE_SEGMENT3_COLS": ["pm_7_3"],
+    "MEASURED_PRESSURE_SEGMENT4_COLS": ["pm_7_4"],
+    "MOCAP_POS_COLS": ["mocap_3_x", "mocap_3_y", "mocap_3_z"],
+    "MOCAP_QUAT_COLS": ["mocap_3_qx", "mocap_3_qy", "mocap_3_qz", "mocap_3_qw"],
+}
 
-# DESIRED_PRESSURE_COLS = [
-#     "Desired_pressure_segment_1",
-#     "Desired_pressure_segment_2",
-#     "Desired_pressure_segment_3",
-#     "Desired_pressure_segment_4",
-# ]
-# MEASURED_PRESSURE_SEGMENT1_COLS = [
-#     "Measured_pressure_Segment_1_pouch_1",
-#     "Measured_pressure_Segment_1_pouch_2",
-#     "Measured_pressure_Segment_1_pouch_3",
-#     "Measured_pressure_Segment_1_pouch_4",
-#     "Measured_pressure_Segment_1_pouch_5",
-# ]
-# MEASURED_PRESSURE_SEGMENT2_COLS = [
-#     "Measured_pressure_Segment_2_pouch_1",
-#     "Measured_pressure_Segment_2_pouch_2",
-#     "Measured_pressure_Segment_2_pouch_3",
-#     "Measured_pressure_Segment_2_pouch_4",
-#     "Measured_pressure_Segment_2_pouch_5",
-# ]
-# MEASURED_PRESSURE_SEGMENT3_COLS = ["Measured_pressure_Segment_3"]
-# MEASURED_PRESSURE_SEGMENT4_COLS = ["Measured_pressure_Segment_4"]
-# MOCAP_POS_COLS = ["mocap_rigid_body_x", "mocap_rigid_body_y", "mocap_rigid_body_z"]
-# MOCAP_QUAT_COLS = [
-#     "mocap_rigid_body_qx",
-#     "mocap_rigid_body_qy",
-#     "mocap_rigid_body_qz",
-#     "mocap_rigid_body_qw",
-# ]
+# Set 2 (Long names - alternative)
+COL_SET_LONG = {
+    "DESIRED_PRESSURE_COLS": [
+        "Desired_pressure_segment_1",
+        "Desired_pressure_segment_2",
+        "Desired_pressure_segment_3",
+        "Desired_pressure_segment_4",
+    ],
+    "MEASURED_PRESSURE_SEGMENT1_COLS": [
+        "Measured_pressure_Segment_1_pouch_1",
+        "Measured_pressure_Segment_1_pouch_2",
+        "Measured_pressure_Segment_1_pouch_3",
+        "Measured_pressure_Segment_1_pouch_4",
+        "Measured_pressure_Segment_1_pouch_5",
+    ],
+    "MEASURED_PRESSURE_SEGMENT2_COLS": [
+        "Measured_pressure_Segment_2_pouch_1",
+        "Measured_pressure_Segment_2_pouch_2",
+        "Measured_pressure_Segment_2_pouch_3",
+        "Measured_pressure_Segment_2_pouch_4",
+        "Measured_pressure_Segment_2_pouch_5",
+    ],
+    "MEASURED_PRESSURE_SEGMENT3_COLS": ["Measured_pressure_Segment_3"],
+    "MEASURED_PRESSURE_SEGMENT4_COLS": ["Measured_pressure_Segment_4"],
+    "MOCAP_POS_COLS": [
+        "Rigid_body_3_x",
+        "Rigid_body_3_y",
+        "Rigid_body_3_z",
+    ],
+    "MOCAP_QUAT_COLS": [
+        "Rigid_body_3_qx",
+        "Rigid_body_3_qy",
+        "Rigid_body_3_qz",
+        "Rigid_body_3_qw",
+    ],
+}
+
+# Initialize with defaults (SHORT) - IMPORTANT: Use Mutable lists for in-place updates
+DESIRED_PRESSURE_COLS = list(COL_SET_SHORT["DESIRED_PRESSURE_COLS"])
+MEASURED_PRESSURE_SEGMENT1_COLS = list(COL_SET_SHORT["MEASURED_PRESSURE_SEGMENT1_COLS"])
+MEASURED_PRESSURE_SEGMENT2_COLS = list(COL_SET_SHORT["MEASURED_PRESSURE_SEGMENT2_COLS"])
+MEASURED_PRESSURE_SEGMENT3_COLS = list(COL_SET_SHORT["MEASURED_PRESSURE_SEGMENT3_COLS"])
+MEASURED_PRESSURE_SEGMENT4_COLS = list(COL_SET_SHORT["MEASURED_PRESSURE_SEGMENT4_COLS"])
+MOCAP_POS_COLS = list(COL_SET_SHORT["MOCAP_POS_COLS"])
+MOCAP_QUAT_COLS = list(COL_SET_SHORT["MOCAP_QUAT_COLS"])
 
 # -- Derived Column Names (for internal use) --
 YAW_BODY_NAME = "yaw_body"
@@ -205,6 +232,30 @@ SENSOR_CONTROL_CONFIG_2 = [
         "colors": ["tab:orange"],
     },
 ]
+
+
+def update_column_constants(df):
+    """
+    Check which column set is present in the DataFrame and update global constants in-place.
+    """
+    cols = set(df.columns)
+
+    # Check for a representative column from the LONG set
+    use_long = any(c in cols for c in COL_SET_LONG["MEASURED_PRESSURE_SEGMENT1_COLS"])
+
+    target_set = COL_SET_LONG if use_long else COL_SET_SHORT
+    print(
+        f"\n[INFO] Detected column set: {'LONG (Alternative)' if use_long else 'SHORT (Standard)'}"
+    )
+
+    # Update globals in-place so references in config dicts remain valid
+    DESIRED_PRESSURE_COLS[:] = target_set["DESIRED_PRESSURE_COLS"]
+    MEASURED_PRESSURE_SEGMENT1_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT1_COLS"]
+    MEASURED_PRESSURE_SEGMENT2_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT2_COLS"]
+    MEASURED_PRESSURE_SEGMENT3_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT3_COLS"]
+    MEASURED_PRESSURE_SEGMENT4_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT4_COLS"]
+    MOCAP_POS_COLS[:] = target_set["MOCAP_POS_COLS"]
+    MOCAP_QUAT_COLS[:] = target_set["MOCAP_QUAT_COLS"]
 
 
 # =================================================================================
@@ -658,6 +709,9 @@ def main():
     if data.empty:
         print("Error: Data file is empty.")
         return
+
+    # Update column constants based on detected columns
+    update_column_constants(data)
 
     # Create a new DataFrame for derived data (like yaw, pitch, roll)
     # This avoids modifying the original data DataFrame

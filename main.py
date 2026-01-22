@@ -391,6 +391,7 @@ class DataLogger:
         self.last_flush_wall: Optional[float] = None
 
         self.data_buffer: List[List[float]] = []
+        self.wave_type_buffer: List[str] = []
         self.lock = threading.Lock()
 
         self.flush_interval_s = 0.5
@@ -433,21 +434,38 @@ class DataLogger:
             cols.append("mocap_time_rel_s")
 
         # Sequence columns
-        cols.extend(["config_wave_type", "config_seg1_psi", "config_max_psi"])
+        # Note: 'config_wave_type' is now stored in a separate string dataset
+        cols.extend(["config_seg1_psi", "config_max_psi"])
 
         return cols
 
-    def _ensure_dataset_and_append(self, data_array: np.ndarray) -> None:
+    def _ensure_dataset_and_append(
+        self, data_array: np.ndarray, wave_types: List[str]
+    ) -> None:
         if data_array.size == 0:
             return
 
         with h5py.File(self.hdf5_path, "a") as f:
             if not self._initialized_dataset:
                 grp = f.create_group(self.exp_group_name)
+
+                # 1. Numeric Data
                 grp.create_dataset(
                     "data",
                     data=data_array,
                     maxshape=(None, data_array.shape[1]),
+                    compression="gzip",
+                    compression_opts=4,
+                )
+
+                # 2. String Data (Wave Types)
+                # Use variable-length UTF-8 string dtype
+                dt = h5py.string_dtype(encoding="utf-8")
+                grp.create_dataset(
+                    "wave_types",
+                    data=np.array(wave_types, dtype=object),
+                    maxshape=(None,),
+                    dtype=dt,
                     compression="gzip",
                     compression_opts=4,
                 )
@@ -462,11 +480,18 @@ class DataLogger:
                 self._initialized_dataset = True
             else:
                 grp = f[self.exp_group_name]
+
+                # Resize and Append Numeric Data
                 dset = grp["data"]
                 old_rows = dset.shape[0]
                 new_rows = old_rows + data_array.shape[0]
                 dset.resize((new_rows, dset.shape[1]))
                 dset[old_rows:new_rows, :] = data_array
+
+                # Resize and Append String Data
+                dset_str = grp["wave_types"]
+                dset_str.resize((new_rows,))
+                dset_str[old_rows:new_rows] = np.array(wave_types, dtype=object)
 
             f.flush()
 
@@ -474,8 +499,12 @@ class DataLogger:
         if not self.data_buffer:
             return
         arr = np.array(self.data_buffer, dtype=np.float64)
+        waves = list(self.wave_type_buffer)
+
         self.data_buffer.clear()
-        self._ensure_dataset_and_append(arr)
+        self.wave_type_buffer.clear()
+
+        self._ensure_dataset_and_append(arr, waves)
         self.last_flush_wall = time.time()
 
     # ---------------- public API ----------------
@@ -558,19 +587,27 @@ class DataLogger:
 
                     col_names.append("mocap_time_rel_s")
 
-                # Sequence columns
-                col_names.extend(
-                    ["config_wave_type", "config_seg1_psi", "config_max_psi"]
-                )
+                # Sequence columns (Wave type is now in separate dataset)
+                col_names.extend(["config_seg1_psi", "config_max_psi"])
 
-                # Create resizable dataset
-                # Shape: (0, num_columns), Max Shape: (Unlimited, num_columns)
+                # Create resizable dataset for numeric data
                 num_cols = len(col_names)
                 grp.create_dataset(
                     "data",
                     shape=(0, num_cols),
                     maxshape=(None, num_cols),
                     dtype="float32",
+                    compression="gzip",
+                    compression_opts=4,
+                )
+
+                # Create resizable dataset for string data (Wave Types)
+                dt = h5py.string_dtype(encoding="utf-8")
+                grp.create_dataset(
+                    "wave_types",
+                    shape=(0,),
+                    maxshape=(None,),
+                    dtype=dt,
                     compression="gzip",
                     compression_opts=4,
                 )
@@ -611,6 +648,7 @@ class DataLogger:
                 logger.info(f"Saving data to {self.month_file_path}...")
                 with h5py.File(self.hdf5_path, "r") as src:
                     with h5py.File(self.month_file_path, "a") as dst:
+                        # Copy group
                         src.copy(src[self.exp_group_name], dst, self.exp_group_name)
                 logger.info("Save complete.")
             except Exception as e:
@@ -666,19 +704,19 @@ class DataLogger:
             row.append(float(mocap_dt_s))
 
         # Sequence config
+        wave_str = ""
         if seq_config:
-            # wave_type (enum/int), seg1_psi, max_psi
-            # We map wave strings to ints for HDF5: axial=1, circular=2, triangular=3, static=0
-            w_map = {"static": 0, "axial": 1, "circular": 2, "triangular": 3}
-            w_val = w_map.get(seq_config.get("wave", ""), -1)
-            row.append(float(w_val))
+            # wave_type (string), seg1_psi, max_psi
+            wave_str = seq_config.get("wave", "unknown")
             row.append(float(seq_config.get("seg1", 0.0)))
             row.append(float(seq_config.get("max_p", 0.0)))
         else:
-            row.extend([0.0, 0.0, 0.0])
+            wave_str = WAVE_FUNCTION
+            row.extend([0.0, 0.0])
 
         with self.lock:
             self.data_buffer.append(row)
+            self.wave_type_buffer.append(wave_str)
             self.total_samples += 1
 
             need_flush = False

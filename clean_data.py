@@ -4,7 +4,7 @@ import os
 # ---- CONFIGURATION ----
 
 OUTPUT_FOLDER_NAME = "cleaned_data"
-INPUT_FODLER_NAME = "files_for_submission"
+INPUT_FODLER_NAME = "clean_data_folder"
 # This dictionary defines all the renaming operations.
 # 'old_name': 'new_name'
 COLUMN_RENAME_MAP = {
@@ -24,32 +24,34 @@ COLUMN_RENAME_MAP = {
     "pm_8_2": "Measured_pressure_Segment_2_pouch_5",
     "pm_8_4": "Measured_pressure_Segment_3",
     "pm_8_3": "Measured_pressure_Segment_4",
-    # rename mocap3 columns to the new generic rigid body names
-    "mocap_3_x": "mocap_rigid_body_x",
-    "mocap_3_y": "mocap_rigid_body_y",
-    "mocap_3_z": "mocap_rigid_body_z",
-    "mocap_3_qx": "mocap_rigid_body_qx",
-    "mocap_3_qy": "mocap_rigid_body_qy",
-    "mocap_3_qz": "mocap_rigid_body_qz",
-    "mocap_3_qw": "mocap_rigid_body_qw",
+    # Mocap 1 -> Rigid_body_1
+    "mocap_1_x": "Rigid_body_1_x",
+    "mocap_1_y": "Rigid_body_1_y",
+    "mocap_1_z": "Rigid_body_1_z",
+    "mocap_1_qx": "Rigid_body_1_qx",
+    "mocap_1_qy": "Rigid_body_1_qy",
+    "mocap_1_qz": "Rigid_body_1_qz",
+    "mocap_1_qw": "Rigid_body_1_qw",
+    # Mocap 2 -> Rigid_body_2
+    "mocap_2_x": "Rigid_body_2_x",
+    "mocap_2_y": "Rigid_body_2_y",
+    "mocap_2_z": "Rigid_body_2_z",
+    "mocap_2_qx": "Rigid_body_2_qx",
+    "mocap_2_qy": "Rigid_body_2_qy",
+    "mocap_2_qz": "Rigid_body_2_qz",
+    "mocap_2_qw": "Rigid_body_2_qw",
+    # Mocap 3 -> Rigid_body_3
+    "mocap_3_x": "Rigid_body_3_x",
+    "mocap_3_y": "Rigid_body_3_y",
+    "mocap_3_z": "Rigid_body_3_z",
+    "mocap_3_qx": "Rigid_body_3_qx",
+    "mocap_3_qy": "Rigid_body_3_qy",
+    "mocap_3_qz": "Rigid_body_3_qz",
+    "mocap_3_qw": "Rigid_body_3_qw",
 }
 
 # This list contains all columns that should be completely removed.
 COLUMNS_TO_DROP = [
-    "mocap_1_x",
-    "mocap_1_y",
-    "mocap_1_z",
-    "mocap_1_qx",
-    "mocap_1_qy",
-    "mocap_1_qz",
-    "mocap_1_qw",
-    "mocap_2_x",
-    "mocap_2_y",
-    "mocap_2_z",
-    "mocap_2_qx",
-    "mocap_2_qy",
-    "mocap_2_qz",
-    "mocap_2_qw",
     "pm_6_1",
     "pm_6_2",
     "pm_6_3",

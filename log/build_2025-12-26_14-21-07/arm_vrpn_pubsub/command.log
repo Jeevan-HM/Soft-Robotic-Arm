@@ -1,4 +1,0 @@
-Invoking command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub -- -j4 -l4
-Invoked command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub -- -j4 -l4
-Invoking command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub
-Invoked command in '/home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/jeevan/Developer/Soft-Robotic-Arm/build/arm_vrpn_pubsub

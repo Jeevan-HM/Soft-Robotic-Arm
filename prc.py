@@ -1,175 +1,223 @@
-import matplotlib.pyplot as plt
+"""
+Physical Reservoir Computing (PRC) - Bending Angle Prediction
+==============================================================
+
+Predicts bending angle of a soft robotic arm using:
+- Segment 1 (5 pouches): Reservoir
+- Segments 2,3,4 (7 sensors): Actuation input
+- Tapped delay line (15 taps) for temporal features
+- Ridge regression for linear readout
+
+Interactive plots (zoom, pan, reset via toolbar)
+"""
+
+import matplotlib
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.preprocessing import StandardScaler
 
-# CSV_PATH = "Test_1.csv"  # old dataset
-CSV_PATH = (
-    "experiments/October-25/cleaned_data/circular_motion_5_psi_peak.csv"  # new dataset
-)
-# CSV_PATH = "experiments/October-25/cleaned_data/axial_motion.csv"  # new dataset
-# CSV_PATH = "experiments/October-25/cleaned_data/Experiment_14.csv"  # Circular
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# 1) Load with header and extract relevant columns
-df = pd.read_csv(CSV_PATH)
+sns.set_style("whitegrid")
+sns.set_context("notebook", font_scale=1.1)
 
-# Rename columns for easier access
-# Desired pressures: segments 1-4
-# Measured pressures: Segment 1 (5 pouches), Segment 2 (5 pouches), Segments 3 & 4 (1 each)
-desired_cols = [
-    "Desired_pressure_segment_1",
-    "Desired_pressure_segment_2",
-    "Desired_pressure_segment_3",
-    "Desired_pressure_segment_4",
-]
-measured_cols = (
-    [f"Measured_pressure_Segment_1_pouch_{i}" for i in range(1, 6)]
-    + [f"Measured_pressure_Segment_2_pouch_{i}" for i in range(1, 6)]
-    + ["Measured_pressure_Segment_4", "Measured_pressure_Segment_3"]
-)
 
-# Select time, desired pressures (targets), and measured pressures (features)
-df_working = df[["time"] + desired_cols + measured_cols].copy()
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
 
-# Simplify column names
-df_working.columns = ["time", "y1", "y2", "y3", "y4"] + [f"s{i}" for i in range(1, 13)]
+SEGMENT_1_COLS = [f"Measured_pressure_Segment_1_pouch_{i}" for i in range(1, 6)]
+SEGMENT_2_COLS = [f"Measured_pressure_Segment_2_pouch_{i}" for i in range(1, 6)]
+SEGMENT_34_COLS = ["Measured_pressure_Segment_3", "Measured_pressure_Segment_4"]
 
-# 2) Coerce numeric, drop bad rows, sort by time
-for c in df_working.columns:
-    df_working[c] = pd.to_numeric(df_working[c], errors="coerce")
-df_working = df_working.dropna().sort_values("time").reset_index(drop=True)
+TAPS = 15
+RIDGE_ALPHA = 0.01
+TRAIN_FRACTION = 0.5
+TRIM_SECONDS = 10
 
-# 3) Trim first/last 10 s by relative time
-t0 = df_working["time"].iloc[0]
-df_working["t_rel"] = df_working["time"] - t0
-tmax = df_working["t_rel"].iloc[-1]
 
-if tmax <= 20:
-    print(f"Warning: Duration {tmax:.3f}s is too short to drop 10s at start/end.")
-    print("Using 10% trim from start and end instead.")
-    trim_duration = tmax * 0.1
-    df_working = df_working[
-        (df_working["t_rel"] >= trim_duration)
-        & (df_working["t_rel"] <= (tmax - trim_duration))
+# =============================================================================
+# CORE PRC FUNCTIONS
+# =============================================================================
+
+
+def build_tapped_delay_line(X, taps):
+    """Create [x(t), x(t-1), ..., x(t-taps+1)] features."""
+    T, n_features = X.shape
+    X_tapped = np.zeros((T, n_features * taps))
+    for k in range(taps):
+        X_tapped[k:, k * n_features : (k + 1) * n_features] = X[: T - k, :]
+    X_tapped[: taps - 1, :] = np.nan
+    return X_tapped
+
+
+def compute_bending_angle(df, top_prefix, tip_prefix="Rigid_body_3"):
+    """Bending angle from mocap: θ = arctan(horizontal / vertical)."""
+    dx = df[f"{tip_prefix}_x"].values - df[f"{top_prefix}_x"].values
+    dy = df[f"{tip_prefix}_y"].values - df[f"{top_prefix}_y"].values
+    dz = df[f"{tip_prefix}_z"].values - df[f"{top_prefix}_z"].values
+    return np.arctan2(np.sqrt(dx**2 + dz**2), np.abs(dy)) * 180 / np.pi
+
+
+def load_and_preprocess(filepath, top_marker_prefix):
+    """Load and clean data."""
+    df = pd.read_csv(filepath)
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    mocap_cols = [f"{top_marker_prefix}_{c}" for c in ["x", "y", "z"]] + [
+        f"Rigid_body_3_{c}" for c in ["x", "y", "z"]
+    ]
+    sensor_cols = SEGMENT_1_COLS + SEGMENT_2_COLS + SEGMENT_34_COLS
+
+    df = df.dropna(subset=sensor_cols + mocap_cols).reset_index(drop=True)
+    df = df[df[f"{top_marker_prefix}_x"] != 0].reset_index(drop=True)
+
+    t0 = df["time"].iloc[0]
+    df["t_rel"] = df["time"] - t0
+    t_max = df["t_rel"].iloc[-1]
+    df = df[
+        (df["t_rel"] >= TRIM_SECONDS) & (df["t_rel"] <= t_max - TRIM_SECONDS)
     ].reset_index(drop=True)
-else:
-    df_working = df_working[
-        (df_working["t_rel"] >= 10.0) & (df_working["t_rel"] <= (tmax - 10.0))
-    ].reset_index(drop=True)
 
-if len(df_working) < 4:
-    raise ValueError("Not enough samples after trimming.")
+    return df
 
-# 4) Split 50/50 by time order
-mid = len(df_working) // 2
-train = df_working.iloc[:mid].copy()
-test = df_working.iloc[mid:].copy()
-if len(train) == 0 or len(test) == 0:
-    raise ValueError("Train/test split empty — check input length.")
 
-# 5) Prepare features/targets (now with 4 targets: y1, y2, y3, y4)
-start_sensor = 1  # Use all sensors s1-s12
-X_train = train[[f"s{i}" for i in range(start_sensor, 13)]].values
-Y_train = train[["y1", "y2", "y3", "y4"]].values
-X_test = test[[f"s{i}" for i in range(start_sensor, 13)]].values
-Y_test = test[["y1", "y2", "y3", "y4"]].values
+def train_prc_model(X_reservoir, X_actuation, y):
+    """Train PRC: tapped delay + Ridge regression."""
+    X_res_tapped = build_tapped_delay_line(X_reservoir, TAPS)
+    X_act_tapped = build_tapped_delay_line(X_actuation, TAPS)
+    X_combined = np.hstack([X_res_tapped, X_act_tapped])
 
-# 6) Fit linear readout and predict
-model = LinearRegression()
-model.fit(X_train, Y_train)
-Yhat_test = model.predict(X_test)
+    valid = ~np.isnan(X_combined).any(axis=1)
+    X_combined, y_valid = X_combined[valid], y[valid]
 
-# 7) Quick metrics
-r2_each = r2_score(Y_test, Yhat_test, multioutput="raw_values")
-mae_each = mean_absolute_error(Y_test, Yhat_test, multioutput="raw_values")
-print("R2 per target  [y1, y2, y3, y4]:", np.round(r2_each, 4))
-print("MAE per target [y1, y2, y3, y4]:", np.round(mae_each, 4))
+    n_train = int(len(y_valid) * TRAIN_FRACTION)
+    X_train, X_test = X_combined[:n_train], X_combined[n_train:]
+    y_train, y_test = y_valid[:n_train], y_valid[n_train:]
 
-# 8) Plot test emulation (4 panels for 4 segments)
-t_plot = test["time"].values - test["time"].iloc[0]
-titles = [
-    "Segment 1 emulation (test)",
-    "Segment 2 emulation (test)",
-    "Segment 3 emulation (test)",
-    "Segment 4 emulation (test)",
-]
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s = scaler.transform(X_test)
 
-# Bold, distinct colors for true vs predicted
-true_color = "#0066CC"  # Bold blue
-pred_color = "#FF3333"  # Bold red
+    model = Ridge(alpha=RIDGE_ALPHA)
+    model.fit(X_train_s, y_train)
+    y_pred = model.predict(X_test_s)
 
-fig, axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
-for i in range(4):
-    axes[i].plot(
-        t_plot,
-        Y_test[:, i],
-        label=f"Seg{i + 1} true",
-        linewidth=2.5,
-        color=true_color,
-        alpha=0.9,
-    )
-    axes[i].plot(
-        t_plot,
-        Yhat_test[:, i],
-        "--",
-        label=f"Seg{i + 1} pred",
-        linewidth=2.5,
-        color=pred_color,
-        alpha=0.9,
-    )
-    axes[i].set_ylabel("Pressure", fontsize=16, fontweight="bold")
-    axes[i].set_title(titles[i], fontsize=12, fontweight="bold")
-    axes[i].grid(True, alpha=0.3)
-    axes[i].legend(loc="upper right", frameon=True, fontsize=26)
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    error_pct = (mae / np.ptp(y_test)) * 100
 
-axes[-1].set_xlabel("time (s)", fontsize=11, fontweight="bold")
-fig.tight_layout()
-plt.show()
+    return {
+        "y_test": y_test,
+        "y_pred": y_pred,
+        "R2": r2,
+        "MAE": mae,
+        "Error_Percent": error_pct,
+    }
 
-# 9) Plot sensor time-series (test split) in 3 subplots:
-#    (1) s1–s5 (Segment 1 pouches), (2) s6–s10 (Segment 2 pouches), (3) s11–s12 (Segments 3&4)
-groups = [
-    list(range(1, 6)),  # s1-s5: Segment 1 pouches
-    list(range(6, 11)),  # s6-s10: Segment 2 pouches
-    list(range(11, 13)),  # s11-s12: Segments 4 and 3
-]
 
-# Distinct color palettes for each group
-color_palettes = [
-    [
-        "#E41A1C",
-        "#377EB8",
-        "#4DAF4A",
-        "#984EA3",
-        "#FF7F00",
-    ],  # Segment 1: Bold primary colors
-    ["#A65628", "#F781BF", "#999999", "#66C2A5", "#FC8D62"],  # Segment 2: Warm tones
-    ["#8DD3C7", "#FFED6F"],  # Segments 3&4: Bright contrast colors
-]
+# =============================================================================
+# PLOTTING - ESSENTIAL ONLY
+# =============================================================================
 
-fig2, axes2 = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-group_titles = [
-    "Segment 1 Pouches (s1–s5)",
-    "Segment 2 Pouches (s6–s10)",
-    "Segments 3 & 4 (s11–s12)",
-]
 
-for ax, g, title, colors in zip(axes2, groups, group_titles, color_palettes):
-    for k, color in zip(g, colors):
+def plot_results(all_results, sample_rate=100):
+    """
+    Single figure with time series and scatter for both configurations.
+    This is the most informative view of PRC performance.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    for i, (name, res) in enumerate(all_results.items()):
+        y_test, y_pred = res["y_test"], res["y_pred"]
+        t = np.arange(len(y_test)) / sample_rate
+        step = max(1, len(t) // 10000)
+
+        # Time series (left column)
+        ax = axes[i, 0]
+        ax.plot(t[::step], y_test[::step], "b-", label="Ground Truth", linewidth=1.2)
         ax.plot(
-            t_plot,
-            test[f"s{k}"].values,
-            label=f"s{k}",
-            linewidth=2.2,
-            color=color,
-            alpha=0.9,
+            t[::step],
+            y_pred[::step],
+            "r-",
+            label="PRC Prediction",
+            linewidth=1.2,
+            alpha=0.8,
         )
-    ax.set_ylabel("Pressure", fontsize=11, fontweight="bold")
-    ax.set_title(title, fontsize=12, fontweight="bold")
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="upper right", ncol=len(g), frameon=True, fontsize=9)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Bending Angle (°)")
+        ax.set_title(
+            f"{name}\nR² = {res['R2']:.3f} | Error = {res['Error_Percent']:.1f}%",
+            fontweight="bold",
+        )
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
 
-axes2[-1].set_xlabel("time (s)", fontsize=11, fontweight="bold")
-fig2.tight_layout()
-plt.show()
+        # Scatter (right column)
+        ax = axes[i, 1]
+        ax.scatter(y_test[::step], y_pred[::step], alpha=0.3, s=10, c="steelblue")
+        lims = [min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())]
+        ax.plot(lims, lims, "r--", linewidth=2, label="Perfect")
+        ax.set_xlabel("Actual (°)")
+        ax.set_ylabel("Predicted (°)")
+        ax.set_title(f"Predicted vs Actual (R² = {res['R2']:.3f})", fontweight="bold")
+        ax.legend(loc="upper left")
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect("equal", adjustable="box")
+
+    plt.suptitle("PRC Bending Angle Prediction", fontsize=14, fontweight="bold")
+    plt.tight_layout()
+    return fig
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("PRC - BENDING ANGLE PREDICTION")
+    print("=" * 60)
+
+    datasets = [
+        ("No Valve", "files_for_submission/experiment.csv", "Rigid_body_1"),
+        ("With Valve", "files_for_submission/segment_5_valve.csv", "Rigid_body_2"),
+    ]
+
+    all_results = {}
+
+    for name, filepath, top_marker in datasets:
+        print(f"\n{name}:")
+        df = load_and_preprocess(filepath, top_marker)
+        y = compute_bending_angle(df, top_marker)
+        X_res = df[SEGMENT_1_COLS].values
+        X_act = df[SEGMENT_2_COLS + SEGMENT_34_COLS].values
+
+        res = train_prc_model(X_res, X_act, y)
+        all_results[name] = res
+
+        print(
+            f"  R² = {res['R2']:.4f}, MAE = {res['MAE']:.3f}°, Error = {res['Error_Percent']:.2f}%"
+        )
+
+    # Summary
+    print("\n" + "=" * 60)
+    print(f"{'Config':<12} {'R²':>8} {'MAE':>8} {'Error %':>10}")
+    print("-" * 40)
+    for name, res in all_results.items():
+        print(
+            f"{name:<12} {res['R2']:>8.4f} {res['MAE']:>8.3f} {res['Error_Percent']:>10.2f}"
+        )
+    print("=" * 60)
+
+    # Plot
+    print("\nDisplaying results (use toolbar to zoom/pan)...")
+    fig = plot_results(all_results)
+    plt.show()
+
+    print("\nDone!")
