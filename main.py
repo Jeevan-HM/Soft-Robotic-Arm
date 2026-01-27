@@ -79,9 +79,9 @@ WAVE_FUNCTION = "sequence"  # "sequence", "axial", "circular", "triangular", "st
 
 # Sequence Configuration
 SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
-SEQ_SEG1_PRESSURES = [2.0, 3.0]
+SEQ_SEG1_PRESSURES = [3.0]
 SEQ_MAX_PRESSURES = [5.0, 10.0]
-SEQ_WAVE_DURATION = 120.0  # Duration for each wave type in the sequence
+SEQ_WAVE_DURATION = 100.0  # Duration for each wave type in the sequence
 SEQ_COOLDOWN_DURATION = 5.0  # Duration of 2psi hold between waves
 SEQ_SEG1_REFILL_PERIOD = 100.0  # Target period for refilling Segment 1
 SEQ_REFILL_ACTION_DURATION = 5.0  # Duration of the refill pause/interruption
