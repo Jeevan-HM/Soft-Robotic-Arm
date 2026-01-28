@@ -308,7 +308,7 @@ unicodedata2==14.0.0
 unique-identifier-msgs==2.2.1
 urllib3==1.26.5
 usb-creator==0.3.7
-uv==0.9.2
+uv==0.9.6
 vcstool==0.3.0
 vcstools==0.1.42
 visualization-msgs==4.9.0
