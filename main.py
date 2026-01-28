@@ -70,6 +70,8 @@ ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 # Experiment settings
 EXPERIMENT_DURATION = 0.0  # Will be calculated below
 RAMPDOWN_DURATION = 5.0  # seconds to ramp down all pressures to zero
+CALIBRATION_PSI = 1.0  # Target PSI for sensor calibration checking
+
 
 # Desired base pressures (one per Arduino ID, in PSI)
 TARGET_PRESSURES = [2.0 for _ in ARDUINO_IDS]
@@ -79,7 +81,7 @@ WAVE_FUNCTION = "sequence"  # "sequence", "axial", "circular", "triangular", "st
 
 # Sequence Configuration
 SEQ_WAVE_TYPES = ["axial", "circular", "triangular"]
-SEQ_SEG1_PRESSURES = [3.0]
+SEQ_SEG1_PRESSURES = [1.0]
 SEQ_MAX_PRESSURES = [5.0, 10.0]
 SEQ_WAVE_DURATION = 100.0  # Duration for each wave type in the sequence
 SEQ_COOLDOWN_DURATION = 5.0  # Duration of 2psi hold between waves
@@ -188,6 +190,10 @@ class ArduinoManager:
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=len(ARDUINO_IDS)
         )
+        # Store offsets for each sensor (4 per Arduino). Default 0.0
+        self.sensor_offsets: List[List[float]] = [
+            [0.0] * 4 for _ in range(len(ARDUINO_IDS))
+        ]
 
     def connect(self) -> bool:
         """Bind/listen on all configured ports and accept Arduino connections."""
@@ -233,12 +239,18 @@ class ArduinoManager:
                 data += chunk
 
             sensors: List[float] = []
-            for counts in struct.unpack(">4h", data):
+            raw_vals = struct.unpack(">4h", data)
+            for s_i, counts in enumerate(raw_vals):
                 # ADS1115 conversion: counts -> volts (GAIN_TWOTHIRDS, ±6.144 V)
                 volts = counts * (6.144 / 32768.0)
 
                 # Sensor transfer: 0.5–4.5 V => 0–30 psi
                 pressure_psi = 30.0 * (volts - 0.5) / 4.0
+
+                # Apply Offset
+                # Corrected = Measured + Offset
+                # Ideally: True = Measured + Offset => Offset = True - Measured
+                pressure_psi += self.sensor_offsets[idx][s_i]
 
                 sensors.append(round(pressure_psi, 8))
 
@@ -266,6 +278,63 @@ class ArduinoManager:
         # Replace any None with NaNs
         return [r if r is not None else [math.nan] * 4 for r in results]
 
+    def calibrate(self, target_psi, duration: float = 5.0) -> None:
+        """
+        Calibrate sensors by holding target_psi and calculating offsets.
+        Offset = Target - Average_Measured
+        """
+        logger.info(f"Starting calibration at {target_psi} PSI for {duration}s...")
+
+        # 1. Ramp/Hold to target
+        start_time = time.time()
+        # Wait a bit for stabilization before recording
+        stabilize_time = 3.0
+
+        # Accumulators
+        accumulators = [[0.0] * 4 for _ in ARDUINO_IDS]
+        counts = 0
+
+        targets = [target_psi] * len(ARDUINO_IDS)
+
+        while True:
+            elapsed = time.time() - start_time
+            if elapsed > (duration + stabilize_time):
+                break
+
+            measured = self.send_all_parallel(targets)
+
+            if elapsed > stabilize_time:
+                # Accumulate
+                for i, sens_list in enumerate(measured):
+                    for s_j, val in enumerate(sens_list):
+                        # val currently includes old offsets (which are 0.0 initially)
+                        accumulators[i][s_j] += val
+                counts += 1
+
+            time.sleep(0.02)
+
+        if counts == 0:
+            logger.warning("Calibration failed: no samples collected.")
+            return
+
+        # Calculate new offsets
+        logger.info("Calibration Results (Offsets):")
+        for i, acc_list in enumerate(accumulators):
+            for s_j, total in enumerate(acc_list):
+                avg = total / counts
+                # Current Reading = Raw + OldOffset (0)
+                # We want: Current + NewOffsetDelta = Target
+                # So: NewOffset = Target - Raw = Target - avg
+
+                # Since we applied 0 offset during reading, avg is "Raw".
+                # If we re-ran this, we'd need to clear offsets first.
+
+                offset = target_psi - avg
+                self.sensor_offsets[i][s_j] = offset
+                logger.info(
+                    f"  Arduino {ARDUINO_IDS[i]} Sensor {s_j + 1}: {offset:+.4f} PSI (Avg Read: {avg:.4f})"
+                )
+
     def ramp_down(self, seconds: float) -> None:
         """Linearly ramp all pressures down to zero over given time."""
         if seconds <= 0:
@@ -289,6 +358,7 @@ class ArduinoManager:
 
     def cleanup(self) -> None:
         """Close all sockets and shut down executor."""
+        self.ramp_down(1.0)  # Safety ramp down
         for s in self.client_sockets + self.server_sockets:
             try:
                 s.close()
@@ -858,6 +928,26 @@ class Controller:
                 logger.warning("Mocap requested but unavailable; continuing without.")
                 self.mocap = None
 
+        # --- Calibration Prompt ---
+        try:
+            print("\n" + "=" * 40)
+            cal_input = (
+                input(f"Calibrate sensors at {CALIBRATION_PSI} PSI? [y/N]: ")
+                .strip()
+                .lower()
+            )
+            if cal_input == "y":
+                self.arduinos.calibrate(target_psi=CALIBRATION_PSI)
+                # Ramp down after calibration
+                logger.info("Ramping down after calibration...")
+                self.arduinos.ramp_down(3.0)
+                logger.info("Calibration complete. System vented.")
+            else:
+                logger.info("Skipping calibration.")
+            print("=" * 40 + "\n")
+        except (EOFError, KeyboardInterrupt):
+            logger.info("Input interrupted, skipping calibration.")
+
         self.logger.start()
         self.running = True
 
@@ -1426,8 +1516,9 @@ def main():
             print("[1] Periodic (default)")
             print("[2] End of Wave Profile")
             print("[3] Constant 2 PSI (Seg 1)")
+            print("[4] Initial Only (No refill during exp)")
 
-            ans = input("Choice [1/2/3]: ").strip()
+            ans = input("Choice [1/2/3/4]: ").strip()
             if ans == "2":
                 refill_mode = "end_of_wave"
                 print("Mode: End of Wave Profile (Refill after every wave)")
@@ -1436,6 +1527,10 @@ def main():
                 refill_mode = "constant_2psi"
                 print("Mode: Constant 2 PSI on Segment 1")
                 refill_period = float("inf")  # Disable periodic check
+            elif ans == "4":
+                refill_mode = "initial_only"
+                print("Mode: Initial Refill Only (No mid-experiment refills)")
+                refill_period = float("inf")
             else:
                 refill_mode = "periodic"
                 # Ask for period

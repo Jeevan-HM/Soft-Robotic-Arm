@@ -127,9 +127,11 @@ class LeakageTest:
             elapsed = time.time() - start_time
 
             # Send pressure commands and read sensors
+            current_target = self.target_pressure if elapsed < 4.0 else 0.0
+
             sensors = None
             for pump in self.pumps:
-                result = pump.send_pressure_read_sensors(self.target_pressure)
+                result = pump.send_pressure_read_sensors(current_target)
                 # Save sensor data if this pump is the sensor
                 if pump.arduino_id == self.sensor_id:
                     sensors = result
@@ -285,7 +287,7 @@ def main():
 
     # Configuration (modify as needed)
     pump_ids = [3, 6, 7, 8]
-    sensor_id = 3
+    sensor_id = 7
     target_pressure = 3.0
 
     test = LeakageTest(pump_ids, sensor_id, target_pressure)
