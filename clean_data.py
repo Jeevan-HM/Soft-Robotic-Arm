@@ -5,25 +5,33 @@ import os
 
 OUTPUT_FOLDER_NAME = "cleaned_data"
 INPUT_FODLER_NAME = "clean_data_folder"
+
 # This dictionary defines all the renaming operations.
 # 'old_name': 'new_name'
+#
+# Sensor Configuration (Updated):
+#   - Segment 1: 5 pouches (pm_3_1 to pm_3_4, pm_7_1)
+#   - Segment 2: 1 sensor only (pm_7_2)
+#   - Segment 3: 1 sensor (from Arduino 7)
+#   - Segment 4: 1 sensor (from Arduino 7)
+#   - Arduino 8: NOT USED (dropped)
 COLUMN_RENAME_MAP = {
+    # Desired pressures
     "pd_3": "Desired_pressure_segment_1",
     "pd_6": "Desired_pressure_segment_2",
     "pd_7": "Desired_pressure_segment_3",
     "pd_8": "Desired_pressure_segment_4",
+    # Segment 1: 5 pouches (Arduino 3 + Arduino 7)
     "pm_3_1": "Measured_pressure_Segment_1_pouch_1",
     "pm_3_2": "Measured_pressure_Segment_1_pouch_2",
     "pm_3_3": "Measured_pressure_Segment_1_pouch_3",
     "pm_3_4": "Measured_pressure_Segment_1_pouch_4",
     "pm_7_1": "Measured_pressure_Segment_1_pouch_5",
-    "pm_7_2": "Measured_pressure_Segment_2_pouch_1",
-    "pm_7_3": "Measured_pressure_Segment_2_pouch_2",
-    "pm_7_4": "Measured_pressure_Segment_2_pouch_3",
-    "pm_8_1": "Measured_pressure_Segment_2_pouch_4",
-    "pm_8_2": "Measured_pressure_Segment_2_pouch_5",
-    "pm_8_4": "Measured_pressure_Segment_3",
-    "pm_8_3": "Measured_pressure_Segment_4",
+    # Segment 2: 1 sensor only (Arduino 7)
+    "pm_7_2": "Measured_pressure_Segment_2",
+    # Segment 3 and 4: from Arduino 7
+    "pm_7_3": "Measured_pressure_Segment_3",
+    "pm_7_4": "Measured_pressure_Segment_4",
     # Mocap 1 -> Rigid_body_1
     "mocap_1_x": "Rigid_body_1_x",
     "mocap_1_y": "Rigid_body_1_y",
@@ -51,11 +59,18 @@ COLUMN_RENAME_MAP = {
 }
 
 # This list contains all columns that should be completely removed.
+# Includes: Arduino 6 (unused), Arduino 8 (no longer used)
 COLUMNS_TO_DROP = [
+    # Arduino 6 - not used
     "pm_6_1",
     "pm_6_2",
     "pm_6_3",
     "pm_6_4",
+    # Arduino 8 - no longer used
+    "pm_8_1",
+    "pm_8_2",
+    "pm_8_3",
+    "pm_8_4",
 ]
 
 # ---- END CONFIGURATION ----

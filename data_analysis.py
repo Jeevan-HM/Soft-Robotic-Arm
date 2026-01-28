@@ -249,9 +249,20 @@ def update_column_constants(df):
     )
 
     # Update globals in-place so references in config dicts remain valid
+    # Update globals in-place so references in config dicts remain valid
     DESIRED_PRESSURE_COLS[:] = target_set["DESIRED_PRESSURE_COLS"]
     MEASURED_PRESSURE_SEGMENT1_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT1_COLS"]
-    MEASURED_PRESSURE_SEGMENT2_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT2_COLS"]
+
+    # Handle Segment 2 specifically
+    seg2_cols = target_set["MEASURED_PRESSURE_SEGMENT2_COLS"]
+    if use_long:
+        # Check if any of the expected pouch columns exist
+        has_pouches = any(c in cols for c in seg2_cols)
+        # If not, but we have the single column, use that instead
+        if not has_pouches and "Measured_pressure_Segment_2" in cols:
+            seg2_cols = ["Measured_pressure_Segment_2"]
+
+    MEASURED_PRESSURE_SEGMENT2_COLS[:] = seg2_cols
     MEASURED_PRESSURE_SEGMENT3_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT3_COLS"]
     MEASURED_PRESSURE_SEGMENT4_COLS[:] = target_set["MEASURED_PRESSURE_SEGMENT4_COLS"]
     MOCAP_POS_COLS[:] = target_set["MOCAP_POS_COLS"]

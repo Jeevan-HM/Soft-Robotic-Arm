@@ -30,14 +30,25 @@ sns.set_context("notebook", font_scale=1.1)
 # CONFIGURATION
 # =============================================================================
 
+# Sensor columns (Updated configuration)
+# Segment 1: 5 pouches (reservoir)
 SEGMENT_1_COLS = [f"Measured_pressure_Segment_1_pouch_{i}" for i in range(1, 6)]
-SEGMENT_2_COLS = [f"Measured_pressure_Segment_2_pouch_{i}" for i in range(1, 6)]
+# Segment 2: 1 sensor only (no longer 5 pouches)
+SEGMENT_2_COLS = ["Measured_pressure_Segment_2"]
+# Segments 3-4: 1 sensor each
 SEGMENT_34_COLS = ["Measured_pressure_Segment_3", "Measured_pressure_Segment_4"]
 
-TAPS = 15
-RIDGE_ALPHA = 0.01
-TRAIN_FRACTION = 0.5
-TRIM_SECONDS = 10
+# PRC Architecture:
+# - Reservoir: Segment 1 (5 pouches) - the physical body whose dynamics we exploit
+# - Input/Context: Segments 2-4 (3 sensors) - actuation signals driving the reservoir
+RESERVOIR_COLS = SEGMENT_1_COLS  # Segment 1 as reservoir
+INPUT_COLS = SEGMENT_2_COLS + SEGMENT_34_COLS  # Segments 2-4 as input/context
+
+# Training hyperparameters
+TAPS = 15  # Number of temporal taps for delay line
+RIDGE_ALPHA = 0.01  # Ridge regression regularization
+TRAIN_FRACTION = 0.5  # Train/test split ratio
+TRIM_SECONDS = 10  # Seconds to trim from start/end
 
 
 # =============================================================================
@@ -183,6 +194,10 @@ if __name__ == "__main__":
     print("=" * 60)
     print("PRC - BENDING ANGLE PREDICTION")
     print("=" * 60)
+    print("\nArchitecture:")
+    print(f"  Reservoir (Segment 1): {len(RESERVOIR_COLS)} sensors")
+    print(f"  Input/Context (Segments 2-4): {len(INPUT_COLS)} sensors")
+    print(f"  Temporal taps: {TAPS}")
 
     datasets = [
         ("No Valve", "files_for_submission/experiment.csv", "Rigid_body_1"),
@@ -195,8 +210,10 @@ if __name__ == "__main__":
         print(f"\n{name}:")
         df = load_and_preprocess(filepath, top_marker)
         y = compute_bending_angle(df, top_marker)
-        X_res = df[SEGMENT_1_COLS].values
-        X_act = df[SEGMENT_2_COLS + SEGMENT_34_COLS].values
+        # Reservoir: Segment 1 only
+        X_res = df[RESERVOIR_COLS].values
+        # Input/Context: Segments 2-4
+        X_act = df[INPUT_COLS].values
 
         res = train_prc_model(X_res, X_act, y)
         all_results[name] = res
