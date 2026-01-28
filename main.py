@@ -71,6 +71,7 @@ ARDUINO_PORTS = [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]
 EXPERIMENT_DURATION = 0.0  # Will be calculated below
 RAMPDOWN_DURATION = 5.0  # seconds to ramp down all pressures to zero
 CALIBRATION_PSI = 1.0  # Target PSI for sensor calibration checking
+CALIBRATION_STABILIZATION_TIME = 10.0  # Seconds to wait before measuring
 
 
 # Desired base pressures (one per Arduino ID, in PSI)
@@ -228,6 +229,10 @@ class ArduinoManager:
         """
         try:
             # send desired pressure as float32 (little-endian from Arduino side)
+            # DEBUG: Log every ~2 seconds (assuming ~50-100Hz calls, risky floods otherwise)
+            # Actually, let's just log if it changes significantly or just once per calibration call?
+            # Safe approach: Just log.
+            # logger.debug(f"Sending {pressure} to Arduino {idx}")
             self.client_sockets[idx].send(struct.pack("f", float(pressure)))
 
             # read 4 * int16 = 8 bytes
@@ -283,12 +288,18 @@ class ArduinoManager:
         Calibrate sensors by holding target_psi and calculating offsets.
         Offset = Target - Average_Measured
         """
+        logger.info(f"DEBUG: calibrate called with target_psi={target_psi}")
+
+        # RESET OFFSETS to ensure we measure raw values
+        self.sensor_offsets = [[0.0] * 4 for _ in range(len(ARDUINO_IDS))]
+        logger.info("Offsets reset to 0.0 for calibration.")
+
         logger.info(f"Starting calibration at {target_psi} PSI for {duration}s...")
 
         # 1. Ramp/Hold to target
         start_time = time.time()
         # Wait a bit for stabilization before recording
-        stabilize_time = 3.0
+        stabilize_time = CALIBRATION_STABILIZATION_TIME
 
         # Accumulators
         accumulators = [[0.0] * 4 for _ in ARDUINO_IDS]
