@@ -97,7 +97,7 @@ fastbencode==0.0.5
 fasteners==0.14.1
 fastimport==0.9.14
 flake8==4.0.1
-fonttools==4.29.1
+fonttools==4.60.2
 fs==2.4.12
 future==0.18.2
 gast==0.5.2
