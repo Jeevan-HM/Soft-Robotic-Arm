@@ -288,8 +288,11 @@ class SoftArmSim:
         cfg = self.cfg
         cam = mujoco.MjvCamera()
         cam.azimuth, cam.elevation, cam.distance = cam_azimuth, cam_elevation, cam_distance
-        mount_z = cfg.length + 0.28 if cfg.hang_down else 0.05
-        arm_mid_z = mount_z - cfg.length * 0.5 if cfg.hang_down else cfg.length * 0.5
+        mount_z = cfg.mount_z
+        # Centre the view between the plywood plate (mount_z) and the arm tip
+        # so both the plywood at the top and the tip at the bottom are in frame.
+        arm_tip_z = mount_z - cfg.length - cfg.spacer_length if cfg.hang_down else cfg.length
+        arm_mid_z = (mount_z + arm_tip_z) * 0.5 if cfg.hang_down else cfg.length * 0.5
         cam.lookat[:] = [0.0, 0.0, arm_mid_z]
         self._renderer.update_scene(self.data, camera=cam)
         return self._renderer.render()

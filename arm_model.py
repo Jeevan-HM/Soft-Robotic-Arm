@@ -48,6 +48,7 @@ class ArmConfig:
 
     # --- geometry (estimated from physical arm photos) ---
     length: float = 0.22          # total arm length at rest [m]
+    spacer_length: float = 0.118  # distance from plywood mount to arm base [m]
     col_offset: float = 0.028     # column axis distance from arm centre [m]
     col_radius: float = 0.018     # column outer radius [m]
     mass: float = 0.35            # total moving mass: fabric + fittings [kg]
@@ -88,13 +89,24 @@ class ArmConfig:
 
     def col_azimuths(self) -> np.ndarray:
         """Azimuth of each column [rad], shape (n_segments,).
-        Default: [0, pi/2, pi, 3pi/2] for East/North/West/South."""
-        return np.deg2rad(self.seg_azimuth0_deg
-                          + 360.0 / self.n_segments * np.arange(self.n_segments))
+        User requested: Mirror horizontally and vertically (180 deg rotation).
+        col 0: -Y (270 deg)
+        col 1: -X (180 deg)
+        col 2: +Y (90 deg)
+        col 3: +X (0 deg)
+        """
+        angles_deg = [270.0, 180.0, 90.0, 0.0]
+        return np.deg2rad(angles_deg)
 
     def azimuths(self) -> np.ndarray:
         """Alias for col_azimuths() — API compatibility."""
         return self.col_azimuths()
+        
+    @property
+    def mount_z(self) -> float:
+        """World Z coordinate of the mount plate."""
+        # 0.40m clearance below the arm tip to prevent clipping the floor
+        return self.length + self.spacer_length + 0.40 if self.hang_down else 0.05
 
 
 def build_arm_xml(cfg: ArmConfig) -> str:
@@ -107,10 +119,10 @@ def build_arm_xml(cfg: ArmConfig) -> str:
     col_phis = cfg.col_azimuths()      # (4,)
     # One color per column so it's visually obvious which column is which
     col_colors = [
-        "0.92 0.55 0.08 1",  # col 0 East  : orange
-        "0.10 0.68 0.18 1",  # col 1 North : green
-        "0.82 0.18 0.08 1",  # col 2 West  : red
-        "0.08 0.28 0.90 1",  # col 3 South : blue
+        "0.82 0.18 0.08 1",  # col 0 : red (swapped from orange)
+        "0.08 0.28 0.90 1",  # col 1 : blue (swapped from green)
+        "0.92 0.55 0.08 1",  # col 2 : orange (swapped from red)
+        "0.10 0.68 0.18 1",  # col 3 : green (swapped from blue)
     ]
     disc_r = cfg.col_offset + cfg.col_radius + 0.003  # connector ring radius
 
@@ -118,10 +130,9 @@ def build_arm_xml(cfg: ArmConfig) -> str:
     indent = "      "   # 6 spaces, inside mount body
 
     for k in range(n_levels):
-        # Level k's body position is relative to its parent body:
-        #   level 0 is at the mount body origin (z=0)
+        #   level 0 is at the end of the spacer posts
         #   every subsequent level is one step further down (inside previous body)
-        offset = 0.0 if k == 0 else zdir * h
+        offset = -cfg.spacer_length if k == 0 and cfg.hang_down else (0.0 if k == 0 else zdir * h)
         body_xml += f'{indent}<body name="level{k}" pos="0 0 {offset:.6f}">\n'
 
         # Axial slide DOF
@@ -204,8 +215,6 @@ def build_arm_xml(cfg: ArmConfig) -> str:
         ind = "      " + "  " * (k - 1)
         body_xml += f"{ind}</body>\n"
 
-    mount_z = cfg.length + 0.28 if cfg.hang_down else 0.05
-
     xml = f"""<mujoco model="fabric_soft_arm">
   <option timestep="{cfg.timestep}" gravity="0 0 -9.81" integrator="implicitfast"/>
   <visual>
@@ -224,22 +233,24 @@ def build_arm_xml(cfg: ArmConfig) -> str:
     <light pos="0.0 -0.8 1.8" dir="0.0 0.5 -1" diffuse="0.6 0.6 0.65" specular="0.2 0.2 0.2"/>
     <light pos="0.6 0.4 1.5" dir="-0.4 -0.3 -1" diffuse="0.4 0.4 0.45" specular="0.1 0.1 0.1"/>
     <geom name="floor" type="plane" size="2.0 2.0 0.05" material="grid"/>
-    <body name="mount" pos="0 0 {mount_z:.4f}">
+    <body name="mount" pos="0 0 {cfg.mount_z:.4f}">
       <!-- Plywood mount plate (~15x15 cm) -->
       <geom name="mount_plate" type="box" size="0.150 0.150 0.009"
             material="mount_wood" contype="0" conaffinity="0"/>
-      <!-- 4 aluminium extrusion posts at corners -->
-      <geom name="post_fl" type="cylinder" fromto="-0.10 -0.10 0 -0.10 -0.10 0.30"
-            size="0.008" material="post_metal" contype="0" conaffinity="0"/>
-      <geom name="post_fr" type="cylinder" fromto=" 0.10 -0.10 0  0.10 -0.10 0.30"
-            size="0.008" material="post_metal" contype="0" conaffinity="0"/>
-      <geom name="post_bl" type="cylinder" fromto="-0.10  0.10 0 -0.10  0.10 0.30"
-            size="0.008" material="post_metal" contype="0" conaffinity="0"/>
-      <geom name="post_br" type="cylinder" fromto=" 0.10  0.10 0  0.10  0.10 0.30"
-            size="0.008" material="post_metal" contype="0" conaffinity="0"/>
-      <!-- Top connector disc (mount -> arm) -->
-      <geom name="mount_disc" type="cylinder" pos="0 0 -0.003"
-            size="{disc_r:.4f} 0.003" mass="0.010"
+      
+      <!-- 4 black 3D-printed spacer posts hanging down -->
+      <geom name="spacer_fl" type="box" fromto="-0.035 -0.035 0 -0.035 -0.035 -{cfg.spacer_length:.4f}"
+            size="0.006 0.006 0.006" material="post_metal" contype="0" conaffinity="0"/>
+      <geom name="spacer_fr" type="box" fromto=" 0.035 -0.035 0  0.035 -0.035 -{cfg.spacer_length:.4f}"
+            size="0.006 0.006 0.006" material="post_metal" contype="0" conaffinity="0"/>
+      <geom name="spacer_bl" type="box" fromto="-0.035  0.035 0 -0.035  0.035 -{cfg.spacer_length:.4f}"
+            size="0.006 0.006 0.006" material="post_metal" contype="0" conaffinity="0"/>
+      <geom name="spacer_br" type="box" fromto=" 0.035  0.035 0  0.035  0.035 -{cfg.spacer_length:.4f}"
+            size="0.006 0.006 0.006" material="post_metal" contype="0" conaffinity="0"/>
+            
+      <!-- Bottom base disc (mount -> arm) -->
+      <geom name="mount_disc" type="box" pos="0 0 -{cfg.spacer_length:.4f}"
+            size="0.045 0.045 0.003" mass="0.010"
             rgba="0.10 0.10 0.12 1" contype="0" conaffinity="0"/>
 {body_xml}    </body>
   </worldbody>
