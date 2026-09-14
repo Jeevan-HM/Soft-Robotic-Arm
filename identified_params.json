@@ -1,0 +1,23 @@
+{
+  "n_segments": 4,
+  "n_pouches": 5,
+  "seg_azimuth0_deg": 0.0,
+  "length": 0.22,
+  "col_offset": 0.028,
+  "col_radius": 0.018,
+  "mass": 0.36940816091876827,
+  "tip_mass": 0.08,
+  "tip_arm": 0.07,
+  "hang_down": true,
+  "moment_arm": 0.028,
+  "pressure_gain": 0.6785140257337393,
+  "extension_gain": 0.03475060456198478,
+  "base_stiffness": 0.4591346525394212,
+  "base_damping": 0.053410202628305856,
+  "axial_stiffness": 555.3561646910879,
+  "axial_damping": 26.746670804400296,
+  "stiffness_per_psi": 0.414,
+  "p_max": 10.0,
+  "tau_pneumatic": 0.12,
+  "timestep": 0.001
+}

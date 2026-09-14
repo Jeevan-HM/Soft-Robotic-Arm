@@ -35,7 +35,8 @@ The wrapper (soft_arm_sim.SoftArmSim) maps P -> per-level bending
 moments + axial forces written to data.qfrc_applied every physics step.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+import json
 import numpy as np
 
 
@@ -95,6 +96,25 @@ class ArmConfig:
     def azimuths(self) -> np.ndarray:
         """Alias for col_azimuths() — API compatibility."""
         return self.col_azimuths()
+
+    def to_json(self, path: str) -> None:
+        """Serialise all config fields to a JSON file."""
+        with open(path, "w") as f:
+            json.dump(asdict(self), f, indent=2)
+
+    @classmethod
+    def from_json(cls, path: str) -> "ArmConfig":
+        """Load an ArmConfig from a JSON file produced by to_json().
+
+        Unknown keys are silently ignored so that partial override files
+        (e.g. containing only the identified parameters) work fine.
+        """
+        with open(path) as f:
+            data = json.load(f)
+        import dataclasses
+        valid_keys = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in valid_keys}
+        return cls(**filtered)
 
 
 def build_arm_xml(cfg: ArmConfig) -> str:

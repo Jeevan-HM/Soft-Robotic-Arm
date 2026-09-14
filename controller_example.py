@@ -31,14 +31,15 @@ def main():
     obs = sim.reset()
     tip0 = obs["tip_pos"].copy()          # rest tip position
 
-    phis = sim.cfg.azimuths()             # (5,)
+    phis = sim.cfg.azimuths()             # (n_pouches,)
+    n_pouches = len(phis)
     # column k pulls the tip toward direction d_k in the xy-plane
-    col_dirs = np.stack([-np.cos(phis), -np.sin(phis)], axis=1)  # (5, 2)
+    col_dirs = np.stack([-np.cos(phis), -np.sin(phis)], axis=1)  # (n_pouches, 2)
 
     Kp, Ki, Kd = 110.0, 130.0, 14.0         # kPa per m, m*s of tip error
     p_bias = 3.0                          # on top of pre-inflation
-    integ = np.zeros(5)
-    cmd_cols = np.full(5, p_bias)
+    integ = np.zeros(n_pouches)
+    cmd_cols = np.full(n_pouches, p_bias)
 
     # reference: 4 cm-radius circle at 0.10 Hz, after a 1 s hold
     T = 14.0
