@@ -1,99 +1,108 @@
-# Soft Robotic Arm Digital Twin Simulation
+# Soft Robotic Arm — Simulation
 
-This repository contains the MuJoCo-based digital twin simulation for a 4-column, 5-level pneumatic soft robotic arm. 
+This repository contains two simulation backends for a 4-column, 5-level fabric
+pneumatic soft robotic arm.
 
-## Setup Instructions
-
-### Prerequisites
-- Python 3.9+
-- `uv` package manager (recommended for fast virtual environment setup)
-
-### Installation
-1. Clone this repository and checkout the simulation branch:
-   ```bash
-   git clone -b simulation https://github.com/Jeevan-HM/Soft-Robotic-Arm.git
-   cd Soft-Robotic-Arm
-   ```
-
-2. Sync the dependencies using `uv`:
-   ```bash
-   uv sync
-   ```
-   *(Alternatively, use `pip install -r pyproject.toml` or install `mujoco`, `numpy`, `matplotlib`, `imageio[ffmpeg]` manually)*
-
-### Running the Simulation
-To run the full suite of validation demos (Step response, axial extension, circular and triangular trajectories):
-```bash
-uv run demo.py
-```
-All generated plots and videos will be saved into the `output/` directory.
-
-**Example Video Output (Circular Trajectory):**
-
-<video src="output/soft_arm_demo.mp4" controls="controls" muted="muted" width="800"></video>
+| Folder | Backend | Physics | Status |
+|--------|---------|---------|--------|
+| [`sofa/`](sofa/) | **SOFA + SoftRobots** | FEM continuum mechanics | ✅ Active |
+| [`mujoco/`](mujoco/) | MuJoCo rigid-body | Spring-damper joints | 📦 Reference |
 
 ---
 
-## 1. Physical Architecture
-The robotic arm is modeled as 4 pneumatic segment columns (Seg 1-4) arranged in a square cross-section, with 5 floor levels stacked vertically.
-- **Seg 1**: East (Azimuth 0°), Orange
-- **Seg 2**: North (Azimuth 90°), Green
-- **Seg 3**: West (Azimuth 180°), Red
-- **Seg 4**: South (Azimuth 270°), Blue
+## Quick start
 
-**Kinematics (15 DOFs):** 
-Each of the 5 floor levels consists of a nested rigid body with:
-- `slide` joint for axial extension/compression
-- `hinge` joint for X-axis bending
-- `hinge` joint for Y-axis bending
+### SOFA (active development)
 
-## 2. Geometry & Physics Parameters
-- **Arm Length:** 22.0 cm (rest length)
-- **Column Offset:** 2.8 cm (from arm center)
-- **Column Outer Radius:** 1.8 cm
-- **Total Moving Mass:** 0.35 kg
-- **Max Pressure Limit:** 10.0 psi
-- **Base Stiffness:** 0.30 N·m/rad
-- **Axial Stiffness:** 600.0 N/m
+See [`sofa/README.md`](sofa/README.md) for full installation and usage.
 
-**Wrench Mappings (Pressure -> Force):**
-- **Bending Gain:** 0.552 N/psi (per column per level)
-- **Axial Gain:** 0.034 N/psi (per column per level)
-- **Pre-inflation Stiffness Scaling:** 0.414 / psi
+```bash
+# 1. Install SOFA binaries from https://www.sofa-framework.org/download/
+# 2. Set PYTHONPATH (see sofa/README.md)
+# 3. Generate the mesh
+pip install gmsh
+python sofa/mesh/generate_mesh.py
 
-## 3. Waveforms and Validation
+# 4. Run a demo
+python sofa/demo.py --demo circle --plot
+```
 
-### Step Response
-- **Goal:** Analyze dynamic response to an instantaneous command.
-- **Waveform:** 3.0 psi step on Seg 1 (all 5 floors) starting at t=1.0s.
-- **Analysis:** Demonstrates the effect of stiffness-modulating pre-inflation (0.0 psi vs 2.2 psi). Higher pre-inflation leads to a stiffer arm, resulting in smaller tip deflection.
+### MuJoCo (Colab-compatible reference)
 
-![Step Response](docs/step_response.png)
+```bash
+cd mujoco
+uv sync
+uv run demo.py
+```
 
-### Segment-Local Actuation
-- **Goal:** Verify multi-segment symmetry and independent bending directions.
-- **Waveform:** Independent 3.0 psi constant commands delivered sequentially to each segment (Seg 1 → Seg 2 → Seg 3 → Seg 4).
-- **Analysis:** Results map perfectly to expected Cartesian axes (East, North, West, South) with symmetric deflection magnitudes (~2.2 cm).
+Or open [`mujoco/soft_robotic_arm-2.ipynb`](mujoco/soft_robotic_arm-2.ipynb)
+in Google Colab.
 
-![Segment Local Actuation](docs/segment_local.png)
+---
 
-### Axial Extension / Single Segment Oscillation
-- **Goal:** Validate passive compression and dynamic axial coupling.
-- **Waveform:** 0.5 Hz sine wave on Seg 4 only. Amplitude = 3.6 psi, DC Offset = 3.6 psi (pressure bounded 0-7.2 psi). Segs 1-3 remain off (0 psi).
-- **Analysis:** Seg 4 expands axially while structurally coupling forces compress the opposite Seg 2, causing the arm to oscillate cleanly in the Seg 4–Seg 2 plane.
+## Physical architecture
 
-![Axial Extension](docs/axial_extension.png)
+The arm has **4 pneumatic columns** (East / North / West / South) arranged at
+the corners of a 28 mm-radius square, each with **5 inflatable levels**
+stacked vertically along a 220 mm arm.
 
-### Circular Trajectory
-- **Goal:** Verify smoothly rotating bending moments for trajectory tracking.
-- **Waveform:** Phase-shifted cosine pressure commands to all segments (0.4 Hz orbit frequency). Amplitude = 1.5 psi, DC Offset = 1.7 psi.
-- **Analysis:** Tip accurately traces a circle in the XY plane.
+```
+      N (col 1)
+      |  r = 18 mm
+W ----+---- E (col 0)    centre-to-column = 28 mm
+      |
+      S (col 3)
+```
 
-![Circular Trajectory](docs/tip_circle.png)
+Pressurising a column elongates one side → bends the tip toward that column.
 
-### Triangular Trajectory
-- **Goal:** Verify tracking of sharp transitions and straight-line Cartesian paths between vertices.
-- **Waveform:** Target coordinates (X, Y) are linearly interpolated between 3 vertices (equilateral triangle) and projected onto the column axes. 2.5s per triangle edge. Peak amplitude = 2.2 psi.
-- **Analysis:** Proves the parallel multi-column architecture can reliably compose complex target shapes.
+---
 
-![Triangular Trajectory](docs/tip_triangle.png)
+## Key parameters
+
+### SOFA FEM (`sofa/arm_config.py`)
+
+| Parameter | Value | Basis |
+|---|---|---|
+| Young's modulus | 0.3 MPa | Dragon Skin 10 silicone + fabric reinforcement |
+| Poisson ratio | 0.45 | Near-incompressible elastomer |
+| Density | 1100 kg/m³ | Silicone (1070–1200 kg/m³) |
+| Max pressure | 10 psi (68.9 kPa) | Hardware limit |
+| Pneumatic τ | 0.12 s | Measured from hardware step response |
+
+### MuJoCo sysid (`mujoco/identified_params.json`)
+
+| Parameter | Identified value |
+|---|---|
+| Pressure gain | 0.679 N/psi |
+| Base stiffness | 0.459 N·m/rad |
+| Base damping | 0.053 N·m·s/rad |
+| Axial stiffness | 555 N/m |
+| Mass | 0.369 kg |
+
+---
+
+## Repository structure
+
+```
+simulation/
+├── sofa/                    ← Active: SOFA FEM simulation
+│   ├── mesh/
+│   │   ├── generate_mesh.py
+│   │   └── soft_arm.msh     (generated — not committed)
+│   ├── arm_config.py
+│   ├── soft_arm_scene.py
+│   ├── soft_arm_sim.py
+│   ├── demo.py
+│   └── README.md
+│
+├── mujoco/                  ← Reference: MuJoCo rigid-body simulation
+│   ├── arm_model.py
+│   ├── soft_arm_sim.py
+│   ├── sysid.py
+│   ├── identified_params.json
+│   ├── soft_robotic_arm-2.ipynb
+│   └── README.md
+│
+└── README.md                ← This file
+```
