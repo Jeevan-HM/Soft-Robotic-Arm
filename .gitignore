@@ -12,11 +12,10 @@ wheels/
 # Output (now tracked)
 # output/
 
-# SOFA build artefacts
+# Native build artefacts
 *.so
 *.dll
 *.dylib
-sofa/.sofa_*
 
-# Generated mesh (large binary — regenerate with generate_mesh.py)
-sofa/mesh/soft_arm.msh
+# macOS metadata
+.DS_Store

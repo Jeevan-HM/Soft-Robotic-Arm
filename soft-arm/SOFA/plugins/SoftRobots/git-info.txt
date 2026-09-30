@@ -1,0 +1,23 @@
+# Git info for SoftRobots
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+a90daf240cce8d159fc2a6493f7808b86c99d857
+
+## Branches containing current commit
+## git branch -a --contains a90daf240cce8d159fc2a6493f7808b86c99d857 
+* v26.06
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://www.github.com/SofaDefrost/SoftRobots.git (fetch)
+origin	https://www.github.com/SofaDefrost/SoftRobots.git (push)
+
+## More info
+## git log --pretty -n 1
+commit a90daf240cce8d159fc2a6493f7808b86c99d857
+Author: Paul Baksic <30337881+bakpaul@users.noreply.github.com>
+Date:   Tue Jul 7 13:52:13 2026 +0200
+
+    [CI] Update workflow to match branch name (#348)

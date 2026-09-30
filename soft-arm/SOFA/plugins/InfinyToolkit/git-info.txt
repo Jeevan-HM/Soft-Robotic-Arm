@@ -1,0 +1,25 @@
+# Git info for InfinyToolkit
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+a512ee5900655aef690e3999c31f1d8b825a8d88
+
+## Branches containing current commit
+## git branch -a --contains a512ee5900655aef690e3999c31f1d8b825a8d88 
+* (HEAD détachée sur a512ee5)
+  remotes/origin/tag/release-v26.06.00
+  remotes/origin/tag/v26.06.00
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://github.com/InfinyTech3D/InfinyToolkit.git (fetch)
+origin	https://github.com/InfinyTech3D/InfinyToolkit.git (push)
+
+## More info
+## git log --pretty -n 1
+commit a512ee5900655aef690e3999c31f1d8b825a8d88
+Author: epernod <erik.pernod@gmail.com>
+Date:   Fri Jul 10 14:38:55 2026 +0200
+
+    [ci] Update github action for v26.06

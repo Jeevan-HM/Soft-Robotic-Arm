@@ -1,0 +1,35 @@
+# Git info for BeamAdapter
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+cac4005bd7c9f266c5c775ab88cebbd7c7fa83c7
+
+## Branches containing current commit
+## git branch -a --contains cac4005bd7c9f266c5c775ab88cebbd7c7fa83c7 
+  master
+* v26.06
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/master
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://www.github.com/sofa-framework/BeamAdapter.git (fetch)
+origin	https://www.github.com/sofa-framework/BeamAdapter.git (push)
+
+## More info
+## git log --pretty -n 1
+commit cac4005bd7c9f266c5c775ab88cebbd7c7fa83c7
+Author: Lennart Karstensen <41954538+lkarstensen@users.noreply.github.com>
+Date:   Sat Jun 13 01:20:14 2026 +0200
+
+    [RodStraightSection] Fix rest shape double-offset for non-first sections (#223) (#224)
+    
+    x_used is the global curvilinear abscissa; adding x_start again placed
+    the rest node at 2*x_start + local_offset instead of x_used. For wires
+    with two or more RodStraightSections this produced enormous elastic
+    restoring forces at every timestep, causing simulation explosion.
+    
+    Fix: use x_used directly, consistent with RodSpireSection and RodMeshSection.
+    
+    Co-authored-by: Lennart Karstensen <lennart.karstensen@ipa.fraunhofer.de>

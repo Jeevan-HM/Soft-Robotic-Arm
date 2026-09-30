@@ -1,0 +1,142 @@
+{
+  "simulation_only": true,
+  "paired_seed": 2007,
+  "common_reference": true,
+  "comparison_scenario_version": 2,
+  "plant_calibration": {
+    "model": "robot_calibration.json",
+    "source_url": "https://github.com/Jeevan-HM/Soft-Robotic-Arm/tree/main/data/_data_extract",
+    "source_commit": "dcd376e4522874306cab820016e93c8c21a2974e",
+    "reservoir_topology": "parallel",
+    "actuator_delay_s": 0.5,
+    "pressure_time_constant_s": 0.6,
+    "simulator_pressure_ceiling_psi": 11.0,
+    "recorded_command_ceiling_psi": 10.0,
+    "recorded_excitation_frequency_hz": 0.1
+  },
+  "prc_reference_preview_steps": 50,
+  "pid_reference_preview_steps": 50,
+  "pid_gains": {
+    "kp_psi_per_deg": 1.0,
+    "ki_psi_per_deg_s": 0.12,
+    "kd_psi_s_per_deg": 0.03
+  },
+  "pid_derivative_cutoff_hz": 2.0,
+  "pid_integral_limit_deg_s": 8.0,
+  "pid_antiwindup_gain_s_inv": 0.5,
+  "pid_gain_calibration": {
+    "evaluation_scenario_used_for_selection": null,
+    "provenance": "unknown_for_custom_settings",
+    "note": "custom PID settings are outside the provisional baseline; whether they used this evaluation scenario is unknown"
+  },
+  "prc": {
+    "step": {
+      "rmse_deg": 0.2668373343247335,
+      "zero_bend_baseline_rmse_deg": 0.2738759383354707,
+      "max_error_deg": 0.763315476598315,
+      "pressure_tv_psi": 90.0298103359106,
+      "projected_fraction": 0.5245,
+      "fallback_count": 0.0,
+      "mae_deg": 0.21067737478325954,
+      "normalized_rmse": 0.9743000277661646,
+      "bend_peak_to_peak_deg": 1.787644653524425,
+      "segment3_rms_excursion_psi": 1.0815125986960152,
+      "saturation_fraction": 0.0
+    },
+    "sine": {
+      "rmse_deg": 0.22342656641388392,
+      "zero_bend_baseline_rmse_deg": 0.3466546522969894,
+      "max_error_deg": 0.4673077512178867,
+      "pressure_tv_psi": 94.24349252350868,
+      "projected_fraction": 0.5455,
+      "fallback_count": 0.0,
+      "mae_deg": 0.18776492327805946,
+      "normalized_rmse": 0.6445220479039402,
+      "bend_peak_to_peak_deg": 1.3465330932250352,
+      "segment3_rms_excursion_psi": 1.1037193027263905,
+      "saturation_fraction": 0.0
+    },
+    "multisine": {
+      "rmse_deg": 0.21295248500821468,
+      "zero_bend_baseline_rmse_deg": 0.2461404592956289,
+      "max_error_deg": 0.5234898722245694,
+      "pressure_tv_psi": 95.1118038099124,
+      "projected_fraction": 0.5615,
+      "fallback_count": 0.0,
+      "mae_deg": 0.18354567503278388,
+      "normalized_rmse": 0.8651665216584586,
+      "bend_peak_to_peak_deg": 1.1652039512922925,
+      "segment3_rms_excursion_psi": 1.0272170505951712,
+      "saturation_fraction": 0.0
+    },
+    "all": {
+      "rmse_deg": 0.2355634057886193,
+      "zero_bend_baseline_rmse_deg": 0.2919832205570178,
+      "max_error_deg": 0.763315476598315,
+      "pressure_tv_psi": 279.50510666933167,
+      "projected_fraction": 0.5438333333333333,
+      "fallback_count": 0.0,
+      "mae_deg": 0.19399599103136764,
+      "normalized_rmse": 0.8067703525539374,
+      "bend_peak_to_peak_deg": 1.7905042296889562,
+      "segment3_rms_excursion_psi": 1.0712983819307733,
+      "saturation_fraction": 0.0
+    }
+  },
+  "pid": {
+    "step": {
+      "rmse_deg": 0.18819160092574744,
+      "zero_bend_baseline_rmse_deg": 0.2738759383354707,
+      "max_error_deg": 0.6159701630703359,
+      "pressure_tv_psi": 3.3223649222068605,
+      "projected_fraction": 0.0155,
+      "fallback_count": 0.0,
+      "mae_deg": 0.13869717519485222,
+      "normalized_rmse": 0.6871417842309006,
+      "bend_peak_to_peak_deg": 0.43404322864755984,
+      "segment3_rms_excursion_psi": 0.20308438395470307,
+      "saturation_fraction": 0.0
+    },
+    "sine": {
+      "rmse_deg": 0.19409007080148905,
+      "zero_bend_baseline_rmse_deg": 0.3466546522969894,
+      "max_error_deg": 0.32470170951175414,
+      "pressure_tv_psi": 1.6650307668273348,
+      "projected_fraction": 0.0015,
+      "fallback_count": 0.0,
+      "mae_deg": 0.17001696488840867,
+      "normalized_rmse": 0.5598946084104658,
+      "bend_peak_to_peak_deg": 0.5060731482611197,
+      "segment3_rms_excursion_psi": 0.22337564548254957,
+      "saturation_fraction": 0.0
+    },
+    "multisine": {
+      "rmse_deg": 0.1203240705208515,
+      "zero_bend_baseline_rmse_deg": 0.2461404592956289,
+      "max_error_deg": 0.37145739555022783,
+      "pressure_tv_psi": 0.8452804288437239,
+      "projected_fraction": 0.0,
+      "fallback_count": 0.0,
+      "mae_deg": 0.09362346128084673,
+      "normalized_rmse": 0.4888431217898044,
+      "bend_peak_to_peak_deg": 0.19243786749985198,
+      "segment3_rms_excursion_psi": 0.10602938995261733,
+      "saturation_fraction": 0.0
+    },
+    "all": {
+      "rmse_deg": 0.17084585273420175,
+      "zero_bend_baseline_rmse_deg": 0.2919832205570178,
+      "max_error_deg": 0.6159701630703359,
+      "pressure_tv_psi": 5.834434813717546,
+      "projected_fraction": 0.005666666666666667,
+      "fallback_count": 0.0,
+      "mae_deg": 0.13411253378803586,
+      "normalized_rmse": 0.5851221601305661,
+      "bend_peak_to_peak_deg": 0.5060731482611197,
+      "segment3_rms_excursion_psi": 0.18473600762054224,
+      "saturation_fraction": 0.0
+    }
+  },
+  "prc_common_safety_failures": [],
+  "pid_common_safety_failures": []
+}

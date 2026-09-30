@@ -1,0 +1,7 @@
+prefix=/Users/ci/Jenkins/workspace/sofa-custom/refs/heads/v26.06/macos_clang_release_full_python3.12/build/install
+includedir=${prefix}/include
+
+Name: cxxopts
+Description: 
+Version: 3.1.1
+Cflags: -I${includedir}

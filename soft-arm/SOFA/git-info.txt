@@ -1,0 +1,25 @@
+# Git info for Sofa
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+7c18e95d5c5f2839079892c69e7d89a313c79603
+
+## Branches containing current commit
+## git branch -a --contains 7c18e95d5c5f2839079892c69e7d89a313c79603 
+* (HEAD détachée sur 7c18e95d5c)
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://github.com/sofa-framework/sofa.git (fetch)
+origin	https://github.com/sofa-framework/sofa.git (push)
+
+## More info
+## git log --pretty -n 1
+commit 7c18e95d5c5f2839079892c69e7d89a313c79603
+Author: Paul Baksic <30337881+bakpaul@users.noreply.github.com>
+Date:   Mon Jul 13 00:25:38 2026 +0200
+
+    [v26.06] Add changelog  (#6180)
+    
+    Add changelog for v26.06

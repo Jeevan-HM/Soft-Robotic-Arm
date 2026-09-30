@@ -1,0 +1,864 @@
+/******************************************************************************
+*                              BeamAdapter plugin                             *
+*                  (c) 2006 Inria, University of Lille, CNRS                  *
+*                                                                             *
+* This program is free software; you can redistribute it and/or modify it     *
+* under the terms of the GNU Lesser General Public License as published by    *
+* the Free Software Foundation; either version 2.1 of the License, or (at     *
+* your option) any later version.                                             *
+*                                                                             *
+* This program is distributed in the hope that it will be useful, but WITHOUT *
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or       *
+* FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License *
+* for more details.                                                           *
+*                                                                             *
+* You should have received a copy of the GNU Lesser General Public License    *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.        *
+*******************************************************************************
+* Authors: see Authors.md                                                     *
+*                                                                             *
+* Contact information: contact@sofa-framework.org                             *
+******************************************************************************/
+//
+// C++ Implementation : WireBeamInterpolation / AdaptiveBeamForceFieldAndMass
+//
+// Description:
+//
+//
+// Author: Christian Duriez, INRIA
+//
+// Copyright: See COPYING file that comes with this distribution
+//
+//
+#pragma once
+
+#include <sofa/core/behavior/BaseLocalForceFieldMatrix.h>
+#include <sofa/core/behavior/BaseLocalMassMatrix.h>
+
+#include <BeamAdapter/component/forcefield/AdaptiveBeamForceFieldAndMass.h>
+#include <sofa/core/behavior/MultiMatrixAccessor.h>
+#include <sofa/core/MechanicalParams.h>
+#include <sofa/core/visual/VisualParams.h>
+#include <sofa/helper/ScopedAdvancedTimer.h>
+
+
+namespace beamadapter
+{
+
+/* ************* ADAPTIVE FORCEFIELD_AND_MASS ************** */
+using sofa::core::behavior::ForceField ;
+using sofa::core::objectmodel::BaseContext ;
+using sofa::type::Vec3 ;
+using sofa::type::Quat ;
+using sofa::helper::ReadAccessor ;
+using std::set ;
+using sofa::helper::ScopedAdvancedTimer;
+
+template <class DataTypes>
+AdaptiveBeamForceFieldAndMass<DataTypes>::AdaptiveBeamForceFieldAndMass()
+    : d_computeMass(initData(&d_computeMass,true,"computeMass","if false, only compute the stiff elastic model"))
+    , m_defaultMassDensity(Real(1.))
+    , d_massDensity(initData(&d_massDensity,type::vector<Real>(1, m_defaultMassDensity),"massDensity", "Density of the mass" ))
+    , d_useShearStressComputation(initData(&d_useShearStressComputation, true, "shearStressComputation","if false, suppress the shear stress in the computation"))
+    , d_reinforceLength(initData(&d_reinforceLength, false, "reinforceLength", "if true, a separate computation for the error in elongation is performed"))
+    , l_interpolation(initLink("interpolation","Path to the Interpolation component on scene"))
+
+{
+}
+
+template <class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::init()
+{
+    this->d_componentState.setValue(sofa::core::objectmodel::ComponentState::Loading);
+
+    if(!l_interpolation)
+        l_interpolation.set(dynamic_cast<BaseContext *>(this->getContext())->get<BInterpolation>(BaseContext::Local));
+
+    if (!l_interpolation)
+    {
+        msg_error() << "No Beam Interpolation found, the component can not work.";
+        this->d_componentState.setValue(sofa::core::objectmodel::ComponentState::Invalid);
+    }
+    else
+    {
+        core::topology::BaseMeshTopology* topology = l_interpolation->l_topology.get();
+        auto massDensity = sofa::helper::getWriteOnlyAccessor(d_massDensity);
+        if(topology)
+        {
+            const auto& nbEdges = topology->getNbEdges();
+            if (massDensity.size() != nbEdges)
+            {
+                Real value = m_defaultMassDensity;
+                if (massDensity.size() == 0){
+                    msg_warning() << "Empty data field for " << d_massDensity.getName() <<". Set default " << value;
+                } else {
+                    value = massDensity[0];
+                }
+                massDensity.resize(nbEdges);
+                for (auto& beammassDensity: massDensity)
+                    beammassDensity = value;
+            }
+        }
+        m_defaultMassDensity = massDensity[0]; // if the sizes mismatch again at runtime, will use this default value
+    }
+
+    ForceField<DataTypes>::init();
+    this->d_componentState.setValue(sofa::core::objectmodel::ComponentState::Valid);
+}
+
+
+template <class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::reinit()
+{
+    init();
+}
+
+
+template <class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::computeGravityVector()
+{
+    const Vec3& gravity = this->getContext()->getGravity();
+    m_gravity = Vec6(gravity[0], gravity[1], gravity[2], 0, 0, 0);
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::computeStiffness(const sofa::Index beamId, BeamLocalMatrices& beamLocalMatrices)
+{
+    SOFA_UNUSED(beamId);
+
+    /// material parameters
+    const Real _G = beamLocalMatrices._youngM / (2.0 * (1.0 + beamLocalMatrices._cPoisson));
+
+    const Real L2 = (Real) (beamLocalMatrices._L * beamLocalMatrices._L);
+    const Real L3 = (Real) (L2 * beamLocalMatrices._L);
+    const Real EIy = (Real)(beamLocalMatrices._youngM * beamLocalMatrices._Iy);
+    const Real EIz = (Real)(beamLocalMatrices._youngM * beamLocalMatrices._Iz);
+
+    Real phiy{0.0}, phiz{0.0};
+    /// Find shear-deformation parameters
+    if (beamLocalMatrices._Asy == 0)
+        phiy = 0.0;
+    else
+        phiy = (L2 == 0) ? 0.0 : (Real)(24.0 * (1.0 + beamLocalMatrices._cPoisson) * beamLocalMatrices._Iz / (beamLocalMatrices._Asy * L2));
+
+    if (beamLocalMatrices._Asz == 0)
+        phiz = 0.0;
+    else
+        phiz = (L2 == 0) ? 0.0 : (Real)(24.0 * (1.0 + beamLocalMatrices._cPoisson) * beamLocalMatrices._Iy / (beamLocalMatrices._Asz * L2));
+
+    beamLocalMatrices.m_K00.clear(); beamLocalMatrices.m_K01.clear(); beamLocalMatrices.m_K10.clear(); beamLocalMatrices.m_K11.clear();
+
+    /// diagonal values
+    beamLocalMatrices.m_K00[0][0] = beamLocalMatrices.m_K11[0][0] = (beamLocalMatrices._L == 0.0)? 0.0 : beamLocalMatrices._youngM * beamLocalMatrices._A/ beamLocalMatrices._L;
+    beamLocalMatrices.m_K00[1][1] = beamLocalMatrices.m_K11[1][1] = (L3 == 0.0)? 0.0 :(Real)(12.0*EIz/(L3*(1.0+phiy)));
+    beamLocalMatrices.m_K00[2][2] = beamLocalMatrices.m_K11[2][2] = (L3 == 0.0)? 0.0 : (Real)(12.0*EIy/(L3*(1.0+phiz)));
+    beamLocalMatrices.m_K00[3][3] = beamLocalMatrices.m_K11[3][3] = (beamLocalMatrices._L == 0.0)? 0.0 : _G* beamLocalMatrices._J/ beamLocalMatrices._L;
+    beamLocalMatrices.m_K00[4][4] = beamLocalMatrices.m_K11[4][4] = (beamLocalMatrices._L == 0.0)? 0.0 : (Real)((4.0+phiz)*EIy/(beamLocalMatrices._L*(1.0+phiz)));
+    beamLocalMatrices.m_K00[5][5] = beamLocalMatrices.m_K11[5][5] = (beamLocalMatrices._L == 0.0)? 0.0 : (Real)((4.0+phiy)*EIz/(beamLocalMatrices._L*(1.0+phiy)));
+
+    /// diagonal blocks
+    beamLocalMatrices.m_K00[4][2]  = (L2 == 0.0)? 0.0 : (Real)(-6.0*EIy/(L2*(1.0+phiz)));
+    beamLocalMatrices.m_K00[5][1]  = (L2 == 0.0)? 0.0 : (Real)( 6.0*EIz/(L2*(1.0+phiy)));
+    beamLocalMatrices.m_K11[5][1]  = -beamLocalMatrices.m_K00[5][1];
+    beamLocalMatrices.m_K11[4][2]  = -beamLocalMatrices.m_K00[4][2];
+
+    /// lower non-diagonal blocks
+    beamLocalMatrices.m_K10[0][0]   = -beamLocalMatrices.m_K00[0][0];
+    beamLocalMatrices.m_K10[1][1]   = -beamLocalMatrices.m_K00[1][1];
+    beamLocalMatrices.m_K10[1][5]   = -beamLocalMatrices.m_K00[5][1];
+    beamLocalMatrices.m_K10[2][2]   = -beamLocalMatrices.m_K00[2][2];
+    beamLocalMatrices.m_K10[2][4]   = -beamLocalMatrices.m_K00[4][2];
+    beamLocalMatrices.m_K10[3][3]   = -beamLocalMatrices.m_K00[3][3];
+    beamLocalMatrices.m_K10[4][2]   = beamLocalMatrices.m_K00[4][2];
+    beamLocalMatrices.m_K10[4][4]   = (beamLocalMatrices._L == 0.0)? 0.0 : (Real)((2.0-phiz)*EIy/(beamLocalMatrices._L*(1.0+phiz)));
+    beamLocalMatrices.m_K10[5][1]   = beamLocalMatrices.m_K00[5][1];
+    beamLocalMatrices.m_K10[5][5]   = (beamLocalMatrices._L == 0.0)? 0.0 : (Real)((2.0-phiy)*EIz/(beamLocalMatrices._L*(1.0+phiy)));
+
+    /// Make a symetric matrix with diagonal blocks
+    for (int i=0; i<=5; i++)
+    {
+        for (int j=i+1; j<6; j++)
+        {
+            beamLocalMatrices.m_K00[i][j] =  beamLocalMatrices.m_K00[j][i];
+            beamLocalMatrices.m_K11[i][j] =  beamLocalMatrices.m_K11[j][i];
+        }
+    }
+
+    /// upper non-diagonal block : set k_loc10 as the transposed matrix of k_loc01
+    beamLocalMatrices.m_K01 = beamLocalMatrices.m_K10.transposed();
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::computeMass(const sofa::Index beamID, BeamLocalMatrices& beamLocalMatrix)
+{
+    SOFA_UNUSED(beamID);
+    const Real L2 = beamLocalMatrix._L * beamLocalMatrix._L;
+    beamLocalMatrix.m_M00.clear(); beamLocalMatrix.m_M01.clear(); beamLocalMatrix.m_M10.clear(); beamLocalMatrix.m_M11.clear();
+
+    const Real AL = beamLocalMatrix._A * beamLocalMatrix._L;
+    const Real Iz_A = (beamLocalMatrix._A == 0.0) ? 0.0 : beamLocalMatrix._Iz / beamLocalMatrix._A;
+    const Real Iy_A = (beamLocalMatrix._A == 0.0) ? 0.0 : beamLocalMatrix._Iy / beamLocalMatrix._A;
+
+    /// diagonal values
+    beamLocalMatrix.m_M00[0][0] = beamLocalMatrix.m_M11[0][0] = (Real)(1.0 / 3.0);
+    beamLocalMatrix.m_M00[1][1] = beamLocalMatrix.m_M11[1][1] = (L2 == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(13.0 / 35.0 + 6.0 * Iz_A / (5.0 * L2));
+    beamLocalMatrix.m_M00[2][2] = beamLocalMatrix.m_M11[2][2] = (L2 == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(13.0 / 35.0 + 6.0 * Iy_A / (5.0 * L2));
+    beamLocalMatrix.m_M00[3][3] = beamLocalMatrix.m_M11[3][3] = (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(beamLocalMatrix._J / (3.0 * beamLocalMatrix._A));
+    beamLocalMatrix.m_M00[4][4] = beamLocalMatrix.m_M11[4][4] = (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(L2 / 105.0 + 2 * Iy_A / 15.0);
+    beamLocalMatrix.m_M00[5][5] = beamLocalMatrix.m_M11[5][5] = (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(L2 / 105.0 + 2 * Iz_A / 15.0);
+
+    /// diagonal blocks
+    beamLocalMatrix.m_M00[4][2] = (beamLocalMatrix._L == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(-11.0 * beamLocalMatrix._L / 210.0 - beamLocalMatrix._Iy / (10 * AL));
+    beamLocalMatrix.m_M00[5][1] = (beamLocalMatrix._L == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(11.0 * beamLocalMatrix._L / 210.0 + beamLocalMatrix._Iz / (10 * AL));
+    beamLocalMatrix.m_M11[5][1]  = -beamLocalMatrix.m_M00[5][1];
+    beamLocalMatrix.m_M11[4][2]  = -beamLocalMatrix.m_M00[4][2];
+
+    beamLocalMatrix.m_M00 *= beamLocalMatrix._rho * AL;
+    beamLocalMatrix.m_M11 *= beamLocalMatrix._rho * AL;
+
+    /// lower non-diagonal blocks
+    beamLocalMatrix.m_M10[0][0] = (Real)(1.0 / 6.0);
+    beamLocalMatrix.m_M10[1][1] = (L2 == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(9.0 / 70.0 - 6.0 * Iz_A / (5.0 * L2));
+    beamLocalMatrix.m_M10[2][2] = (L2 == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(9.0 / 70.0 - 6.0 * Iy_A / (5.0 * L2));
+    beamLocalMatrix.m_M10[3][3]  = (beamLocalMatrix._A == 0.0) ? 0.0: (Real)(beamLocalMatrix._J/(6.0*beamLocalMatrix._A));
+    beamLocalMatrix.m_M10[4][4] = (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(-L2 / 140.0 - Iy_A / 30.0);
+    beamLocalMatrix.m_M10[5][5] = (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(-L2 / 140.0 - Iz_A / 30.0);
+
+    beamLocalMatrix.m_M10[1][5] = (beamLocalMatrix._L == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(13 * beamLocalMatrix._L / 420.0 - beamLocalMatrix._Iz / (10.0 * AL));
+    beamLocalMatrix.m_M10[2][4] = (beamLocalMatrix._L == 0.0) || (beamLocalMatrix._A == 0.0) ? 0.0 : (Real)(-13 * beamLocalMatrix._L / 420.0 + beamLocalMatrix._Iy / (10.0 * AL));
+    beamLocalMatrix.m_M10[4][2]  = -beamLocalMatrix.m_M10[2][4];
+    beamLocalMatrix.m_M10[5][1]  = -beamLocalMatrix.m_M10[1][5];
+
+    beamLocalMatrix.m_M10 *= beamLocalMatrix._rho * AL;
+
+    /// Make a symetric matrix with diagonal blocks
+    for (sofa::Index i=0; i<=5; i++)
+    {
+        for (sofa::Index j=i+1; j<6; j++)
+        {
+            beamLocalMatrix.m_M00[i][j] =  beamLocalMatrix.m_M00[j][i];
+            beamLocalMatrix.m_M11[i][j] =  beamLocalMatrix.m_M11[j][i];
+        }
+    }
+
+    /// upper non-diagonal block : set k_loc10 as the transposed matrix of k_loc01
+    beamLocalMatrix.m_M01 = beamLocalMatrix.m_M10.transposed();
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::applyStiffnessLarge( VecDeriv& df, const VecDeriv& dx,
+                                                                    const sofa::Index beamID, const sofa::Index nd0Id, const sofa::Index nd1Id,
+                                                                    const SReal factor )
+{
+    if(nd0Id == nd1Id) /// Return in case of rigidification
+        return;
+
+    Vec6NoInit U0, U1, u0, u1, f0, f1, F0, F1;
+    const BeamLocalMatrices &beamLocalMatrix = m_localBeamMatrices[beamID];
+
+    for (unsigned int i=0; i<6; i++)
+    {
+        U0[i] = dx[nd0Id][i];
+        U1[i] = dx[nd1Id][i];
+    }
+
+    /// displacement in local frame
+    u0 = beamLocalMatrix.m_A0Ref*U0;
+    u1 = beamLocalMatrix.m_A1Ref*U1;
+
+    /// internal force in local frame
+    f0 = beamLocalMatrix.m_K00*u0 +  beamLocalMatrix.m_K01*u1;
+    f1 = beamLocalMatrix.m_K10*u0 +  beamLocalMatrix.m_K11*u1;
+
+    /// force in global frame
+    F0 = beamLocalMatrix.m_A0Ref.multTranspose(f0);
+    F1 = beamLocalMatrix.m_A1Ref.multTranspose(f1);
+
+    /// put the result in df
+    for (unsigned int i=0; i<6; i++)
+    {
+        df[nd0Id][i] -= F0[i]*factor;
+        df[nd1Id][i] -= F1[i]*factor;
+    }
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::applyMassLarge(VecDeriv& df, const sofa::Index beamID, const sofa::Index nd0Id, const sofa::Index nd1Id, const SReal factor)
+{
+    const BeamLocalMatrices &beamLocalMatrix = m_localBeamMatrices[beamID];
+
+    /// displacement in local frame (only gravity as external force)
+    const Vec6 a0 = beamLocalMatrix.m_A0Ref * m_gravity;
+    const Vec6 a1 = beamLocalMatrix.m_A1Ref * m_gravity;
+
+    /// internal force in local frame
+    const Vec6 f0 = beamLocalMatrix.m_M00*a0 + beamLocalMatrix.m_M01*a1;
+    const Vec6 f1 = beamLocalMatrix.m_M10*a0 + beamLocalMatrix.m_M11*a1;
+
+    /// force in global frame
+    const Vec6 F0 = beamLocalMatrix.m_A0Ref.multTranspose(f0);
+    const Vec6 F1 = beamLocalMatrix.m_A1Ref.multTranspose(f1);
+
+    /// put the result in df
+    for (unsigned int i=0; i<6; i++)
+    {
+        df[nd0Id][i] += F0[i]*factor;
+        df[nd1Id][i] += F1[i]*factor;
+    }
+}
+
+
+
+/////////////////////////////////////
+/// Mass Interface
+/////////////////////////////////////
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::addMDx(const sofa::core::MechanicalParams* mparams , DataVecDeriv& dataf, const DataVecDeriv& datadx, const SReal factor)
+{
+    SOFA_UNUSED(mparams);
+    SOFA_UNUSED(datadx);
+
+    auto f = sofa::helper::getWriteOnlyAccessor(dataf);
+
+    const auto size = l_interpolation->getStateSize();
+    if (f.size() != size)
+        f.resize(size);
+
+    const auto numBeams = l_interpolation->getNumBeams();
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        applyMassLarge( f.wref(), b, node0Idx, node1Idx, factor);
+    }
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::addMToMatrix(const sofa::core::MechanicalParams *mparams,
+                                                            const sofa::core::behavior::MultiMatrixAccessor* matrix)
+{
+    sofa::core::behavior::MultiMatrixAccessor::MatrixRef r = matrix->getMatrix(mstate);
+    const Real mFact = (Real)mparams->mFactor();
+
+    const auto numBeams = l_interpolation->getNumBeams();
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        const BeamLocalMatrices &bLM = m_localBeamMatrices[b];
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        /// matrices in global frame
+        const Matrix6x6 M00 = bLM.m_A0Ref.multTranspose((bLM.m_M00 * bLM.m_A0Ref));
+        const Matrix6x6 M01 = bLM.m_A0Ref.multTranspose((bLM.m_M01 * bLM.m_A1Ref));
+        const Matrix6x6 M10 = bLM.m_A1Ref.multTranspose((bLM.m_M10 * bLM.m_A0Ref));
+        const Matrix6x6 M11 = bLM.m_A1Ref.multTranspose((bLM.m_M11 * bLM.m_A1Ref));
+
+        sofa::Index index0[6], index1[6];
+        for (sofa::Index i=0;i<6;i++)
+            index0[i] = r.offset+node0Idx*6+i;
+        for (sofa::Index i=0;i<6;i++)
+            index1[i] = r.offset+node1Idx*6+i;
+
+        for (sofa::Index i=0;i<6;i++)
+        {
+            for (sofa::Index j=0;j<6;j++)
+            {
+                r.matrix->add(index0[i], index0[j],  M00(i,j)*mFact);
+                r.matrix->add(index0[i], index1[j],  M01(i,j)*mFact);
+                r.matrix->add(index1[i], index0[j],  M10(i,j)*mFact);
+                r.matrix->add(index1[i], index1[j],  M11(i,j)*mFact);
+            }
+        }
+
+    }
+}
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::buildMassMatrix(sofa::core::behavior::MassMatrixAccumulator* matrices)
+{
+    const auto numBeams = l_interpolation->getNumBeams();
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        const BeamLocalMatrices &bLM = m_localBeamMatrices[b];
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        /// matrices in global frame
+        const Matrix6x6 M00 = bLM.m_A0Ref.multTranspose(bLM.m_M00 * bLM.m_A0Ref);
+        const Matrix6x6 M01 = bLM.m_A0Ref.multTranspose(bLM.m_M01 * bLM.m_A1Ref);
+        const Matrix6x6 M10 = bLM.m_A1Ref.multTranspose(bLM.m_M10 * bLM.m_A0Ref);
+        const Matrix6x6 M11 = bLM.m_A1Ref.multTranspose(bLM.m_M11 * bLM.m_A1Ref);
+
+
+        matrices->add(node0Idx * 6, node0Idx * 6,  M00);
+        matrices->add(node0Idx * 6, node1Idx * 6,  M01);
+        matrices->add(node1Idx * 6, node0Idx * 6,  M10);
+        matrices->add(node1Idx * 6, node1Idx * 6,  M11);
+    }
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::addMBKToMatrix(const sofa::core::MechanicalParams* mparams,
+                                                              const sofa::core::behavior::MultiMatrixAccessor* matrix)
+{
+    sofa::core::behavior::MultiMatrixAccessor::MatrixRef r = matrix->getMatrix(mstate);
+    const Real kFact = (Real)mparams->kFactor();
+    const Real mFact = (Real)mparams->mFactor();
+
+    Real totalMass = 0;
+    const auto numBeams = l_interpolation->getNumBeams();
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        const BeamLocalMatrices &bLM = m_localBeamMatrices[b];
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        sofa::Index index0[6], index1[6];
+        for (sofa::Index i=0;i<6;i++)
+            index0[i] = r.offset+node0Idx*6+i;
+        for (sofa::Index i=0;i<6;i++)
+            index1[i] = r.offset+node1Idx*6+i;
+
+        if(node0Idx != node1Idx) // no rigidification
+        {
+            // matrices in global frame
+            const Matrix6x6 K00 = bLM.m_A0Ref.multTranspose((bLM.m_K00 * bLM.m_A0Ref));
+            const Matrix6x6 K01 = bLM.m_A0Ref.multTranspose((bLM.m_K01 * bLM.m_A1Ref));
+            const Matrix6x6 K10 = bLM.m_A1Ref.multTranspose((bLM.m_K10 * bLM.m_A0Ref));
+            const Matrix6x6 K11 = bLM.m_A1Ref.multTranspose((bLM.m_K11 * bLM.m_A1Ref));
+
+            for (sofa::Index i=0;i<6;i++)
+            {
+                for (sofa::Index j=0;j<6;j++)
+                {
+                    r.matrix->add(index0[i], index0[j], - K00(i,j)*kFact);
+                    r.matrix->add(index0[i], index1[j], - K01(i,j)*kFact);
+                    r.matrix->add(index1[i], index0[j], - K10(i,j)*kFact);
+                    r.matrix->add(index1[i], index1[j], - K11(i,j)*kFact);
+                }
+            }
+        }
+
+        // matrices in global frame
+        const Matrix6x6 M00 = bLM.m_A0Ref.multTranspose((bLM.m_M00 * bLM.m_A0Ref));
+        const Matrix6x6 M01 = bLM.m_A0Ref.multTranspose((bLM.m_M01 * bLM.m_A1Ref));
+        const Matrix6x6 M10 = bLM.m_A1Ref.multTranspose((bLM.m_M10 * bLM.m_A0Ref));
+        const Matrix6x6 M11 = bLM.m_A1Ref.multTranspose((bLM.m_M11 * bLM.m_A1Ref));
+
+        for (sofa::Index i=0;i<6;i++)
+        {
+            for (sofa::Index j=0;j<6;j++)
+            {
+                totalMass += M00(i,j)*mFact + M11(i,j)*mFact;
+                r.matrix->add(index0[i], index0[j],  M00(i,j)*mFact);
+                r.matrix->add(index0[i], index1[j],  M01(i,j)*mFact);
+                r.matrix->add(index1[i], index0[j],  M10(i,j)*mFact);
+                r.matrix->add(index1[i], index1[j],  M11(i,j)*mFact);
+            }
+        }
+    }
+}
+
+template <class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::buildDampingMatrix(core::behavior::DampingMatrix*)
+{
+    // No damping in this ForceField
+}
+
+
+/////////////////////////////////////
+/// ForceField Interface
+/////////////////////////////////////
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::addForce (const sofa::core::MechanicalParams* mparams ,
+                                                         DataVecDeriv& dataf,
+                                                         const DataVecCoord& datax,
+                                                         const DataVecDeriv& v)
+{
+    SCOPED_TIMER("AdaptiveBeamForceFieldAndMass_addForce");
+    SOFA_UNUSED(v);
+
+    auto f = sofa::helper::getWriteOnlyAccessor(dataf);
+    const VecCoord& x = datax.getValue();
+    const auto& massDensity = helper::getReadAccessor(d_massDensity);
+
+    f.resize(x.size()); // current content of the vector will remain the same (http://www.cplusplus.com/reference/vector/vector/resize/)
+
+    const auto numBeams = l_interpolation->getNumBeams();
+    m_localBeamMatrices.resize(numBeams);
+
+    const bool computeMass = d_computeMass.getValue();
+    const bool reinforceLength = d_reinforceLength.getValue();
+    const bool useShearStressComputation = d_useShearStressComputation.getValue();
+    
+    if(computeMass)
+    {
+        computeGravityVector();
+    }
+    
+    /// TODO:
+    ///* Redimentionner _localBeamMatrices
+    ///* Calculer les rotation et les transformations
+    ///* Calculer la matrice "locale"
+    ///* Calculer la force exercée par chaque beam
+    ///* Calculer la force exercée par la gravité
+    for (sofa::Index beamId=0; beamId <numBeams; beamId++)
+    {
+        ///find the indices of the nodes
+        sofa::Index node0Idx, node1Idx;
+        l_interpolation->getNodeIndices(beamId, node0Idx, node1Idx);
+
+        ///find the beamMatrices:
+        BeamLocalMatrices& beamMatrices = m_localBeamMatrices[beamId];
+
+        ///////////// new : Calcul du repère local de la beam & des transformations adequates///////////////
+        Transform global_H_local0, global_H_local1;
+
+        /// 1. get the current transform of the beam:
+        l_interpolation->computeTransform(beamId, node0Idx, node1Idx, global_H_local0, global_H_local1, x);
+
+        /// 2. Computes the frame of the beam based on the spline interpolation:
+        Transform global_H_local;
+        constexpr Real baryX = 0.5;
+        const Real L = l_interpolation->getLength(beamId);
+
+        l_interpolation->InterpolateTransformUsingSpline(global_H_local, baryX, global_H_local0, global_H_local1, L);
+
+        Transform local_H_local0 = global_H_local.inversed()*global_H_local0;
+        Transform local_H_local1 = global_H_local.inversed()*global_H_local1;
+
+        /// 3. Computes the transformation from the DOF (in global frame) to the node's local frame DOF0global_H_Node0local and DOF1global_H_Node1local
+        Transform DOF0_H_local0, DOF1_H_local1;
+        l_interpolation->getDOFtoLocalTransform(beamId, DOF0_H_local0, DOF1_H_local1);
+
+        /// 4. Computes the adequate transformation
+        Transform global_R_DOF0(Vec3(0,0,0), x[node0Idx].getOrientation());
+        Transform global_R_DOF1(Vec3(0,0,0), x[node1Idx].getOrientation());
+        /// - rotation due to the optional transformation
+        global_H_local0 = global_R_DOF0*DOF0_H_local0;
+        global_H_local1 = global_R_DOF1*DOF1_H_local1;
+
+        Transform DOF0global_H_Node0local, DOF1global_H_Node1local;
+
+        DOF0global_H_Node0local.set(global_H_local0.getOrigin(), global_H_local.getOrientation() );
+        DOF1global_H_Node1local.set(global_H_local1.getOrigin(), global_H_local.getOrientation() );
+
+        //TODO(dmarchal 2017-05-17) Please specify who/when this will be done
+        //TODO A verifier : global_H_local0.getOrigin() == x[node0Idx].getOrientation().rotate(DOF0_H_local0.getOrigin())
+
+        /// compute Adjoint Matrices:
+        beamMatrices.m_A0Ref = DOF0global_H_Node0local.inversed().getAdjointMatrix();
+        beamMatrices.m_A1Ref = DOF1global_H_Node1local.inversed().getAdjointMatrix();
+
+        /////////////////////////////////////// COMPUTATION OF THE MASS AND STIFFNESS  MATRIX (LOCAL)
+
+        /// Update Interpolation & geometrical parameters with current positions
+
+        /// material parameters
+        l_interpolation->getInterpolationParameters(beamId, beamMatrices._L, beamMatrices._A, beamMatrices._Iy,
+            beamMatrices._Iz, beamMatrices._Asy, beamMatrices._Asz, beamMatrices._J);
+
+        // for BeamInterpolation which is not overidding the _rho
+        if (beamId < static_cast<sofa::Index>(massDensity.size()))
+        {
+            beamMatrices._rho = massDensity[beamId];
+        }
+        else
+        {
+            beamMatrices._rho = m_defaultMassDensity;
+        }
+        l_interpolation->getMechanicalParameters(beamId, beamMatrices._youngM, beamMatrices._cPoisson, beamMatrices._rho);
+
+        /// compute the local mass matrices
+        if(computeMass)
+        {
+            this->computeMass(beamId, beamMatrices);
+        }
+
+        /// IF RIGIDIFICATION: no stiffness forces:
+        if(node0Idx == node1Idx)
+            continue;
+
+        /// compute the local stiffness matrices
+        computeStiffness(beamId, beamMatrices);
+
+        /////////////////////////////COMPUTATION OF THE STIFFNESS FORCE
+        /// compute the current local displacement of the beam (6dofs)
+        /// 1. get the rest transformation from local to 0 and local to 1
+        Transform local_H_local0_rest,local_H_local1_rest;
+        l_interpolation->getSplineRestTransform(beamId, local_H_local0_rest, local_H_local1_rest);
+
+        ///2. computes the local displacement of 0 and 1 in frame local:
+        const SpatialVector u0 = local_H_local0.CreateSpatialVector() - local_H_local0_rest.CreateSpatialVector();
+        const SpatialVector u1 = local_H_local1.CreateSpatialVector() - local_H_local1_rest.CreateSpatialVector();
+
+        /// 3. put the result in a Vec6
+        Vec6NoInit U0local, U1local;
+
+        for (unsigned int i=0; i<3; i++)
+        {
+            U0local[i] = u0.getLinearVelocity()[i];
+            U0local[i+3] = u0.getAngularVelocity()[i];
+            U1local[i] = u1.getLinearVelocity()[i];
+            U1local[i+3] = u1.getAngularVelocity()[i];
+        }
+
+        if(reinforceLength)
+        {
+            Vec3 P0,P1,P2,P3;
+            Real length;
+            const Real rest_length = l_interpolation->getLength(beamId);
+            l_interpolation->getSplinePoints(beamId, x, P0, P1, P2, P3);
+            l_interpolation->computeActualLength(length, P0, P1, P2, P3);
+
+            U0local[0]=(-length+rest_length)/2;
+            U1local[0]=( length-rest_length)/2;
+        }
+
+        if (!useShearStressComputation)
+        {
+            /////////////////// TEST //////////////////////
+            /// test: correction due to spline computation;
+            Vec3 ResultNode0, ResultNode1;
+            l_interpolation->computeStrechAndTwist(beamId, x, ResultNode0, ResultNode1);
+
+            const Real ux0 =-ResultNode0[0] + l_interpolation->getLength(beamId)/2;
+            const Real ux1 = ResultNode1[0] - l_interpolation->getLength(beamId)/2;
+
+            U0local[0] = ux0;
+            U1local[0] = ux1;
+
+            U0local[3] =-ResultNode0[2];
+            U1local[3] = ResultNode1[2];
+
+            //////////////////////////////////////////////////
+        }
+
+        /// compute the force in the local frame:
+        const Vec6 f0 = beamMatrices.m_K00 * U0local + beamMatrices.m_K01 * U1local;
+        const Vec6 f1 = beamMatrices.m_K10 * U0local + beamMatrices.m_K11 * U1local;
+
+        /// compute the force in the global frame
+        const Vec6 F0_ref = beamMatrices.m_A0Ref.multTranspose(f0);
+        const Vec6 F1_ref = beamMatrices.m_A1Ref.multTranspose(f1);
+
+        /// Add this force to vector f
+        for (unsigned int i=0; i<6; i++)
+        {
+            f[node0Idx][i]-=F0_ref[i];
+            f[node1Idx][i]-=F1_ref[i];
+        }
+    }
+
+    if(computeMass)
+    {
+        /// will add gravity directly using m_gravity:
+        DataVecDeriv emptyVec;
+        addMDx(mparams, dataf, emptyVec, 1.0);
+    }
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::addDForce(const sofa::core::MechanicalParams* mparams,
+                                                         DataVecDeriv& datadF, const DataVecDeriv& datadX )
+{
+    auto df = sofa::helper::getWriteOnlyAccessor(datadF);
+    const VecDeriv& dx = datadX.getValue();
+    const double kFactor = mparams->kFactor();
+
+    df.resize(dx.size()); // current content of the vector will remain the same (http://www.cplusplus.com/reference/vector/vector/resize/)
+
+    const auto numBeams = l_interpolation->getNumBeams();
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        applyStiffnessLarge( df.wref(), dx, b, node0Idx, node1Idx, kFactor);
+    }
+}
+
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::addKToMatrix(const sofa::core::MechanicalParams* mparams,
+                                                            const sofa::core::behavior::MultiMatrixAccessor* matrix)
+{
+    sofa::core::behavior::MultiMatrixAccessor::MatrixRef matrixRef = matrix->getMatrix(mstate);
+    const Real k = (Real)mparams->kFactor();
+
+    const auto numBeams = l_interpolation->getNumBeams();
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        const BeamLocalMatrices &beamLocalMatrix = m_localBeamMatrices[b];
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        if(node0Idx == node1Idx)
+            continue;
+
+        // matrices in global frame
+        const Matrix6x6 K00 = beamLocalMatrix.m_A0Ref.multTranspose((beamLocalMatrix.m_K00 * beamLocalMatrix.m_A0Ref));
+        const Matrix6x6 K01 = beamLocalMatrix.m_A0Ref.multTranspose((beamLocalMatrix.m_K01 * beamLocalMatrix.m_A1Ref));
+        const Matrix6x6 K10 = beamLocalMatrix.m_A1Ref.multTranspose((beamLocalMatrix.m_K10 * beamLocalMatrix.m_A0Ref));
+        const Matrix6x6 K11 = beamLocalMatrix.m_A1Ref.multTranspose((beamLocalMatrix.m_K11 * beamLocalMatrix.m_A1Ref));
+
+        sofa::Index index0[6], index1[6];
+        for (sofa::Index i=0;i<6;i++)
+            index0[i] = matrixRef.offset+node0Idx*6+i;
+        for (sofa::Index i=0;i<6;i++)
+            index1[i] = matrixRef.offset+node1Idx*6+i;
+
+        for (sofa::Index i=0;i<6;i++)
+        {
+            for (sofa::Index j=0;j<6;j++)
+            {
+                matrixRef.matrix->add(index0[i], index0[j], - K00(i,j)*k);
+                matrixRef.matrix->add(index0[i], index1[j], - K01(i,j)*k);
+                matrixRef.matrix->add(index1[i], index0[j], - K10(i,j)*k);
+                matrixRef.matrix->add(index1[i], index1[j], - K11(i,j)*k);
+            }
+        }
+    }
+}
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::buildStiffnessMatrix(core::behavior::StiffnessMatrix* matrix)
+{
+    const auto numBeams = l_interpolation->getNumBeams();
+
+
+    auto dfdx = matrix->getForceDerivativeIn(this->mstate)
+                       .withRespectToPositionsIn(this->mstate);
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        sofa::Index node0Idx, node1Idx;
+        const BeamLocalMatrices &beamLocalMatrix = m_localBeamMatrices[b];
+        l_interpolation->getNodeIndices( b,  node0Idx, node1Idx );
+
+        if(node0Idx == node1Idx)
+            continue;
+
+        // matrices in global frame
+        const Matrix6x6 K00 = beamLocalMatrix.m_A0Ref.multTranspose(beamLocalMatrix.m_K00 * beamLocalMatrix.m_A0Ref);
+        const Matrix6x6 K01 = beamLocalMatrix.m_A0Ref.multTranspose(beamLocalMatrix.m_K01 * beamLocalMatrix.m_A1Ref);
+        const Matrix6x6 K10 = beamLocalMatrix.m_A1Ref.multTranspose(beamLocalMatrix.m_K10 * beamLocalMatrix.m_A0Ref);
+        const Matrix6x6 K11 = beamLocalMatrix.m_A1Ref.multTranspose(beamLocalMatrix.m_K11 * beamLocalMatrix.m_A1Ref);
+
+        dfdx(node0Idx*6, node0Idx*6) += - K00;
+        dfdx(node0Idx*6, node1Idx*6) += - K01;
+        dfdx(node1Idx*6, node0Idx*6) += - K10;
+        dfdx(node1Idx*6, node1Idx*6) += - K11;
+    }
+}
+
+
+/////////////////////////////////////
+/// Visualization
+/////////////////////////////////////
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::draw(const sofa::core::visual::VisualParams *vparams)
+{
+    if (!vparams->displayFlags().getShowForceFields() && !vparams->displayFlags().getShowBehaviorModels()) return;
+    if (!mstate) return;
+
+    vparams->drawTool()->saveLastState();
+
+    ReadAccessor<Data<VecCoord> > x = mstate->read(sofa::core::vec_id::read_access::position) ;
+
+    const auto numBeams = l_interpolation->getNumBeams();
+    constexpr Vec3 localPos(0.0,0.0,0.0);
+
+    for (sofa::Index b=0; b<numBeams; b++)
+    {
+        Transform globalH0Local,  globalH1Local;
+
+        unsigned int node0Idx, node1Idx;
+        l_interpolation->getNodeIndices(b, node0Idx, node1Idx);
+        l_interpolation->computeTransform(b, node0Idx, node1Idx, globalH0Local, globalH1Local, x.ref());
+
+        if (vparams->displayFlags().getShowBehaviorModels() && node0Idx != node1Idx)
+            drawElement(vparams, b, globalH0Local, globalH1Local);
+
+        if(vparams->displayFlags().getShowForceFields())
+        {
+            constexpr double nbDiscretization = 50.0;
+            constexpr double step = 1.0/nbDiscretization;
+            
+            type::vector<type::Vec3> points;
+            Vec3 pos = globalH0Local.getOrigin();
+            
+            for (double i=0.0; i<1.00001; i += step)
+            {
+                points.push_back(pos);
+                this->l_interpolation->interpolatePointUsingSpline(b, i, localPos, x.ref(), pos);
+                points.push_back(pos);
+            }
+
+            if(node0Idx == node1Idx) /// rigidification case
+            {
+                vparams->drawTool()->drawLines(points,2, sofa::type::RGBAColor::blue());
+                continue;
+            }
+            else
+            {
+                vparams->drawTool()->drawLines(points,2, sofa::type::RGBAColor::red());
+            }
+
+            const float length = static_cast<float>(l_interpolation->getLength(b));
+
+            constexpr Real baryX = 0.5;
+            Transform globalHLocalInterpol;
+            l_interpolation->InterpolateTransformUsingSpline(b, baryX, localPos, x.ref(), globalHLocalInterpol);
+
+            Quat q = globalHLocalInterpol.getOrientation();
+            q.normalize();
+
+            const Vec3 P1 = globalHLocalInterpol.getOrigin();
+            const Vec3 x = q.rotate(Vec3(length/6.0,0,0));
+            const Vec3 y = q.rotate(Vec3(0,length/8.0,0));
+            const Vec3 z = q.rotate(Vec3(0,0,length/8.0));
+            const float radius_arrow = static_cast<float>(length/60.0f);
+
+            vparams->drawTool()->drawArrow(P1,P1 + x, radius_arrow, sofa::type::RGBAColor::red());
+            vparams->drawTool()->drawArrow(P1,P1 + y, radius_arrow, sofa::type::RGBAColor::red());
+            vparams->drawTool()->drawArrow(P1,P1 + z, radius_arrow, sofa::type::RGBAColor::red());
+        }
+    }
+
+    vparams->drawTool()->restoreLastState();
+}
+
+
+template<class DataTypes>
+void AdaptiveBeamForceFieldAndMass<DataTypes>::drawElement(const sofa::core::visual::VisualParams *vparams, const sofa::Index beamID,
+                                                           const Transform &global_H0_local, const Transform &global_H1_local)
+{
+    const float length = static_cast<float>(l_interpolation->getLength(beamID));
+
+    /// ARROWS
+    const type::Vec3f sizeArrows (length/4.0f, length/8.0f, length/8.0f);
+
+    vparams->drawTool()->drawFrame(global_H0_local.getOrigin(), global_H0_local.getOrientation(), sizeArrows);
+    vparams->drawTool()->drawFrame(global_H1_local.getOrigin(), global_H1_local.getOrientation(), sizeArrows);
+}
+
+
+} // namespace beamadapter

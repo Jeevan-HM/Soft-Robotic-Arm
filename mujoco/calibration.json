@@ -1,0 +1,205 @@
+{
+  "source": {
+    "url": "https://github.com/Jeevan-HM/Soft-Robotic-Arm/tree/main/data/_data_extract",
+    "commit": "dcd376e4522874306cab820016e93c8c21a2974e",
+    "conditions": 36,
+    "topologies": [
+      "parallel",
+      "coupled"
+    ],
+    "waveforms": [
+      "axial",
+      "circular",
+      "triangular"
+    ],
+    "pressure_range_psi": [
+      1.0,
+      10.0
+    ],
+    "excitation_frequency_hz": 0.1,
+    "calibration_date": "2026-09-22"
+  },
+  "arm_config": {
+    "n_segments": 4,
+    "n_pouches": 5,
+    "seg_azimuth0_deg": 0.0,
+    "length": 0.296,
+    "col_offset": 0.028,
+    "col_radius": 0.018,
+    "mass": 0.35,
+    "tip_mass": 0.08,
+    "tip_arm": 0.07,
+    "hang_down": true,
+    "moment_arm": 0.028,
+    "pressure_gain": 0.1273999973,
+    "extension_gain": 0.0918534967,
+    "base_stiffness": 0.4168449461,
+    "base_damping": 0.3629226883,
+    "axial_stiffness": 934.2301025,
+    "axial_damping": 61.50955915,
+    "stiffness_per_psi": 0.0008948236,
+    "p_max": 11.0,
+    "tau_pneumatic": 0.6,
+    "timestep": 0.001
+  },
+  "actuator": {
+    "delay_s": 0.5,
+    "pressure_gain": [
+      1.11956,
+      1.0967,
+      1.16407
+    ],
+    "pressure_bias_psi": [
+      0.44967,
+      0.15251,
+      0.29976
+    ],
+    "bias_applies_above_zero_only": true
+  },
+  "reservoirs": {
+    "parallel": {
+      "charge_gain": [
+        1.0086,
+        1.0225,
+        1.0034,
+        1.0309,
+        1.0311
+      ],
+      "charge_bias_psi": [
+        0.6143,
+        0.4036,
+        0.0401,
+        0.2495,
+        -0.1262
+      ],
+      "leak_tau_s": [
+        3928.0,
+        3812.0,
+        2531.0,
+        3744.0,
+        2691.0
+      ],
+      "curvature_coupling_psi_per_rad": [
+        -3.111,
+        -3.333,
+        -1.903,
+        -1.261,
+        0.228
+      ],
+      "extension_coupling_psi_per_m": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "equalization": 0.0,
+      "relaxation_delay_s": 1.5,
+      "response_tau_s": 0.0,
+      "sensor_noise_psi": 0.002,
+      "force_feedback": true
+    },
+    "coupled": {
+      "charge_gain": [
+        1.03746,
+        1.04121,
+        1.04095,
+        1.026,
+        1.02687
+      ],
+      "charge_bias_psi": [
+        -0.23327,
+        -0.24095,
+        -0.23663,
+        -0.2306,
+        -0.23485
+      ],
+      "leak_tau_s": [
+        5780.0,
+        5780.0,
+        5780.0,
+        5780.0,
+        5780.0
+      ],
+      "fast_fraction_by_charge": [
+        0.11496,
+        0.08465,
+        0.05899
+      ],
+      "fast_tau_s_by_charge": [
+        12.75,
+        16.61,
+        18.46
+      ],
+      "curvature_coupling_psi_per_rad": [
+        -3.332,
+        -3.008,
+        -2.424,
+        -1.887,
+        -1.546
+      ],
+      "extension_coupling_psi_per_m": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "equalization": 0.9,
+      "relaxation_delay_s": 1.5,
+      "response_tau_s": 0.0,
+      "sensor_noise_psi": 0.002,
+      "force_feedback": true
+    }
+  },
+  "validation": {
+    "mechanics_optimizer": {
+      "algorithm": "bounded differential evolution",
+      "seed": 4,
+      "evaluations": 168,
+      "fit_conditions": 6,
+      "unselected_conditions": 30,
+      "fit_objective": 0.263591
+    },
+    "mechanics_replay_all_36_conditions": {
+      "window_s_after_isolation": [
+        60.0,
+        70.0
+      ],
+      "calibrated_lateral_rmse_mm": 3.0289,
+      "calibrated_axial_rmse_mm": 1.0722,
+      "calibrated_median_lateral_amplitude_ratio": 0.9308,
+      "unselected_condition_lateral_rmse_mm": 3.1900,
+      "unselected_condition_axial_rmse_mm": 1.0712,
+      "proper_global_frame_rotation_determinant": 1.0
+    },
+    "end_to_end_all_36_conditions": {
+      "active_pressure_rmse_psi": 0.4355,
+      "reservoir_pressure_rmse_psi": 0.0927,
+      "lateral_rmse_mm": 3.3426,
+      "axial_rmse_mm": 1.1702,
+      "median_lateral_amplitude_ratio": 0.8862,
+      "unselected_condition_lateral_rmse_mm": 3.4786,
+      "unselected_condition_axial_rmse_mm": 1.1699
+    },
+    "late_cycle_end_to_end_all_36_conditions": {
+      "window_s_after_isolation": [
+        160.0,
+        170.0
+      ],
+      "active_pressure_rmse_psi": 0.4498,
+      "reservoir_pressure_rmse_psi": 0.0890,
+      "lateral_rmse_mm": 3.2496,
+      "axial_rmse_mm": 1.1266,
+      "median_lateral_amplitude_ratio": 0.9179,
+      "unselected_condition_lateral_rmse_mm": 3.4054,
+      "unselected_condition_axial_rmse_mm": 1.1355
+    },
+    "coupled_reservoir_relaxation": {
+      "cycle_median_r_squared": 0.977,
+      "cycle_median_rmse_psi": 0.005,
+      "phase_locked_inter_pouch_correlation": 0.997,
+      "common_mode_variance_fraction": 0.9962
+    }
+  }
+}

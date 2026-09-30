@@ -1,0 +1,66 @@
+{
+  "format_version": 2,
+  "gains": {
+    "kp_psi_per_deg": 1.0,
+    "ki_psi_per_deg_s": 0.12,
+    "kd_psi_s_per_deg": 0.03,
+    "control_direction": 1.0
+  },
+  "config": {
+    "control_hz": 100.0,
+    "history_length": 50,
+    "n_reservoir": 5,
+    "n_actuators": 3,
+    "derivative_cutoff_hz": 2.0,
+    "integral_limit_deg_s": 8.0,
+    "antiwindup_gain": 0.5,
+    "pressure_min_psi": 0.0,
+    "pressure_max_psi": 10.0,
+    "slew_rate_psi_s": 6.0,
+    "max_total_pressure_psi": null,
+    "initial_command_psi": [
+      3.0,
+      3.0,
+      3.0
+    ],
+    "pressure_trip_psi": 11.0,
+    "stale_after_s": 0.03,
+    "max_tick_s": 0.008,
+    "fallback_mode": "hold"
+  },
+  "bias_pressure_psi": [
+    3.0,
+    3.0,
+    3.0
+  ],
+  "controlled_actuator": 1,
+  "use_preview_for_proportional": true,
+  "metadata": {
+    "controller": "preview_compensated_pid",
+    "simulation_only": true,
+    "controlled_segment": 3,
+    "fixed_segments": [
+      2,
+      4
+    ],
+    "reservoir_charge_psi": 3.0,
+    "gain_calibration": {
+      "evaluation_scenario_used_for_selection": null,
+      "provenance": "unknown_for_custom_settings",
+      "note": "custom PID settings are outside the provisional baseline; whether they used this evaluation scenario is unknown"
+    },
+    "evaluation_preview_used": true,
+    "comparison_scenario_version": 2,
+    "plant_calibration": {
+      "model": "robot_calibration.json",
+      "source_url": "https://github.com/Jeevan-HM/Soft-Robotic-Arm/tree/main/data/_data_extract",
+      "source_commit": "dcd376e4522874306cab820016e93c8c21a2974e",
+      "reservoir_topology": "parallel",
+      "actuator_delay_s": 0.5,
+      "pressure_time_constant_s": 0.6,
+      "simulator_pressure_ceiling_psi": 11.0,
+      "recorded_command_ceiling_psi": 10.0,
+      "recorded_excitation_frequency_hz": 0.1
+    }
+  }
+}

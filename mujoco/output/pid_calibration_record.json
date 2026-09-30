@@ -1,0 +1,56 @@
+{
+  "format_version": 2,
+  "simulation_only": true,
+  "recorded_date": "2026-09-23",
+  "status": "provisional_migration_baseline",
+  "purpose": "Provenance for conservative PID defaults on the measured-robot calibration; this is not a completed gain calibration or hardware-safety evidence.",
+  "plant_calibration": {
+    "file": "robot_calibration.json",
+    "source_url": "https://github.com/Jeevan-HM/Soft-Robotic-Arm/tree/main/data/_data_extract",
+    "source_commit": "dcd376e4522874306cab820016e93c8c21a2974e",
+    "reservoir_topology": "parallel",
+    "actuator_delay_s": 0.5,
+    "pressure_time_constant_s": 0.6,
+    "simulator_pressure_ceiling_psi": 11.0,
+    "recorded_command_range_psi": [1.0, 10.0],
+    "recorded_excitation_frequency_hz": 0.1
+  },
+  "controller_scenario": {
+    "reservoir_charge_psi": 2.0,
+    "control_hz": 100.0,
+    "settle_seconds": 4.0,
+    "pressure_command_range_psi": [0.0, 10.0],
+    "slew_rate_psi_s": 6.0,
+    "reference_preview_steps": 50,
+    "reference_preview_seconds": 0.5,
+    "default_maximum_reference_frequency_hz": 0.09,
+    "seconds_per_profile": 20.0
+  },
+  "pid_settings": {
+    "kp_psi_per_deg": 1.0,
+    "ki_psi_per_deg_s": 0.12,
+    "kd_psi_s_per_deg": 0.03,
+    "preview_used_for_proportional_only": true,
+    "derivative_cutoff_hz": 2.0,
+    "integral_limit_deg_s": 8.0,
+    "antiwindup_gain_s_inv": 0.5,
+    "controlled_segment": 3,
+    "fixed_segments": [2, 4]
+  },
+  "validation": {
+    "completed": false,
+    "performance_claims": null,
+    "note": "The values are conservative commissioning defaults. Run a fresh multi-seed gain search and held-out evaluation on this calibrated plant before making PID-versus-PRC performance claims."
+  },
+  "artifact_compatibility": {
+    "pid_controller_format_version": 2,
+    "pre_migration_format_version": 1,
+    "pre_migration_artifacts_loadable": false,
+    "reason": "Version 1 artifacts do not carry the required measured-robot calibration provenance and are rejected."
+  },
+  "limitations": [
+    "The provisional gains have not completed a multi-seed robustness sweep.",
+    "Simulation results are not hardware-safety evidence.",
+    "Reference frequencies above 0.1 Hz exceed the measured excitation envelope."
+  ]
+}

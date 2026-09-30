@@ -1,0 +1,26 @@
+# Git info for STLIB
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+b598171b6b964cae74ad56d1d1edd9e737d9ce0e
+
+## Branches containing current commit
+## git branch -a --contains b598171b6b964cae74ad56d1d1edd9e737d9ce0e 
+  master
+* v26.06
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/master
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://www.github.com/SofaDefrost/STLIB.git (fetch)
+origin	https://www.github.com/SofaDefrost/STLIB.git (push)
+
+## More info
+## git log --pretty -n 1
+commit b598171b6b964cae74ad56d1d1edd9e737d9ce0e
+Author: Paul Baksic <30337881+bakpaul@users.noreply.github.com>
+Date:   Fri Dec 12 10:26:56 2025 +0100
+
+    Apply name changing on code and examples (#136)

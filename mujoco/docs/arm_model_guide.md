@@ -1,210 +1,172 @@
-# Soft Robotic Arm — Model Construction Guide
+# Calibrated MuJoCo Arm — Construction Guide
 
-> How the MuJoCo digital twin is built: joints, shapes, bodies, and assembly.
-> Source: [`arm_model.py`](../arm_model.py) · [`build_arm_xml()`](../arm_model.py#L100)
+This guide explains how the calibrated robot model is assembled and how a
+three-pressure command reaches the MuJoCo joints. See
+[`arm_parameters.md`](../arm_parameters.md) for fitted values and
+[`calibration.json`](../calibration.json) for the authoritative
+machine-readable calibration.
 
----
+## Physical and pneumatic layout
 
-## Overall Concept — "4 Buildings, 5 Floors Each"
+The simulated arm has four radial pouch columns and five vertical pouch
+levels. Segment 1 is not an actuator: it is charged once, isolated, and used as
+a five-state pressure reservoir. Segments 2--4 receive the three live pressure
+commands.
 
-The arm is a **serial chain of 5 nested bodies** (one per floor level), each hanging inside the one above it. Think of it like a telescoping structure — the arm hangs downward from a fixed mount plate, with each floor level 44 mm below the previous one.
+```text
+Top view
 
-```
-MOUNT PLATE  (fixed to world, z = 0.50 m)
-    │
-  level 0  ←── 3 joints + 4 column capsules + ring + core
-    │
-  level 1
-    │
-  level 2
-    │
-  level 3
-    │
-  level 4
-    │
-  tip_disc + tip_frame  (OptiTrack marker cross)
+             Segment 2 / column 1 (North)
+                         |
+Segment 3 / column 2 ----+---- Segment 1 / column 0 (sealed)
+                         |
+             Segment 4 / column 3 (South)
 ```
 
-Each level is a MuJoCo `<body>` nested inside its parent. Their relative position is `zdir × h` (downward, since `hang_down = True`), so each level hangs **44 mm** below the one above.
+The runtime keeps a complete 4 × 5 pressure matrix because all columns still
+contribute to mechanics. The public command path is three values:
 
----
+```python
+from simulator import SoftArmSim
 
-## Joints — 3 DOF per Level (15 Total)
-
-Each floor level has exactly **3 joints**, chained together in sequence:
-
-```
-Level k body
-  ├── joint: ext{k}   → SLIDE  (axial up/down)
-  ├── joint: bx{k}    → HINGE  (bend about X axis)
-  └── joint: by{k}    → HINGE  (bend about Y axis)
+sim = SoftArmSim()                    # parallel, Segment 1 charged to 2 psi
+obs = sim.step([p2, p3, p4])          # commands for Segments 2, 3, and 4
 ```
 
-| Joint | Type | Axis | Range | Stiffness | Damping | Purpose |
-|-------|------|------|-------|-----------|---------|---------|
-| `ext0` … `ext4` | Slide | Z `(0 0 -1)` | −5 mm to +30 mm | 600 N/m | 30 N·s/m | Axial extension / compression |
-| `bx0` … `bx4` | Hinge | X `(1 0 0)` | unlimited | 0.30 N·m/rad | 0.08 N·m·s/rad | Bending forward / backward |
-| `by0` … `by4` | Hinge | Y `(0 1 0)` | unlimited | 0.30 N·m/rad | 0.08 N·m·s/rad | Bending left / right |
+Use `SoftArmSim(topology="coupled", reservoir_pressure_psi=3.0)` to reproduce
+a coupled-plumbing condition.
 
-> **Note:** The `bx` + `by` pair together form a **universal joint** — they allow the arm to bend in any direction in 3D space.
+## Five-level mechanical chain
 
-All joints have `springref="0"`, meaning they are spring-loaded back to their zero (straight) configuration.
+The arm is represented by five nested MuJoCo bodies, one per pouch level. The
+calibrated 0.296 m rest length gives a 0.0592 m level height.
 
----
-
-## Geometry — 4 Shapes per Level
-
-Each level body contains **4 geometry pieces**. All have collision disabled (`contype="0"`) since this is a soft body without contact physics.
-
-### 1. Connector Ring — `ring{k}` (Cylinder)
-
-```
-type  : cylinder
-size  : radius = 49 mm,  half-height = 2.5 mm
-color : dark grey  (0.10 0.10 0.12)
-mass  : 6 g
-pos   : (0, 0, 0)  — top of the level
+```text
+mount (fixed)
+  └── level0: ext0, bx0, by0
+       └── level1: ext1, bx1, by1
+            └── level2: ext2, bx2, by2
+                 └── level3: ext3, bx3, by3
+                      └── level4: ext4, bx4, by4
+                           └── tip_disc
+                                └── tip_frame and sensor site
 ```
 
-A flat disc representing the rigid aluminium ring that connects adjacent floor levels.
+Each level contributes three degrees of freedom:
 
----
+| Joint | Type and axis | Range | Calibrated stiffness | Calibrated damping |
+|---|---|---|---:|---:|
+| `ext0` … `ext4` | Axial slide, downward Z | −5 to +30 mm | 934.2301 N/m | 61.5096 N·s/m |
+| `bx0` … `bx4` | Hinge around X | Unbounded | 0.416845 N·m/rad | 0.362923 N·m·s/rad |
+| `by0` … `by4` | Hinge around Y | Unbounded | 0.416845 N·m/rad | 0.362923 N·m·s/rad |
 
-### 2. Four Column Capsules — `col{s}_l{k}` (Capsule × 4)
+Together, each X/Y hinge pair acts as a universal bending joint. All joints
+have zero spring reference, so the passive structure returns toward its
+straight rest configuration.
 
-```
-type     : capsule
-size     : radius = 18 mm
-fromto   : (cx, cy, 0)  →  (cx, cy, −44 mm)   — full level height
-positions: 28 mm from arm centre, at azimuths 0° / 90° / 180° / 270°
-```
+## Level geometry
 
-One capsule per pneumatic column, placed around the centre:
+Each level contains:
 
-```
-         col 1 — North (green)
-              │
-col 2 ────────┼──────── col 0       ← 28 mm from centre axis
-(West, red)   │       (East, orange)
-              │
-         col 3 — South (blue)
-```
+- one dark connector ring at the top;
+- four colored column capsules, 28 mm from the center axis and with an 18 mm
+  radius; and
+- one thin central structural core.
 
-| Column | Direction | Colour | RGBA |
-|--------|-----------|--------|------|
-| 0 | East | Orange | `0.92 0.55 0.08 1` |
-| 1 | North | Green | `0.10 0.68 0.18 1` |
-| 2 | West | Red | `0.82 0.18 0.08 1` |
-| 3 | South | Blue | `0.08 0.28 0.90 1` |
+The column colors and directions are fixed:
 
----
+| Column | Segment | Direction | Color |
+|---:|---:|---|---|
+| 0 | 1 | East | Orange |
+| 1 | 2 | North | Green |
+| 2 | 3 | West | Red |
+| 3 | 4 | South | Blue |
 
-### 3. Central Core — `core{k}` (Cylinder)
+The capsules visualize the pneumatic structure, but MuJoCo does not deform
+their surfaces. All arm geometry has contact disabled. Pressure effects are
+applied to joint generalized forces by `SoftArmSim`.
 
-```
-type        : cylinder
-size        : radius = 5 mm,  half-height = 21 mm
-color       : dark grey  (0.12 0.12 0.14)
-mass        : 15% of level mass ≈ 10.5 g
-pos         : (0, 0, −22 mm)  — centre of level height
-```
+## Fixed mount and marker frame
 
-A thin structural spine running down the centre of each level. Carries 15% of each level's mass.
+The mount is fixed to the world. Its height is derived from arm length so the
+hanging arm clears the floor. A plate, four posts, and a connector disc provide
+visual context but do not add degrees of freedom.
 
----
+The bottom `tip_frame` represents the OptiTrack marker cross. Its calibrated
+half-span is 70 mm and its nominal mass is 0.08 kg. A site at the frame center
+feeds three MuJoCo sensors:
 
-## Tip — 2 Extra Bodies at the Bottom
+| Sensor | Output |
+|---|---|
+| `tip_pos` | World position `(x, y, z)` in meters |
+| `tip_quat` | World orientation quaternion `(w, x, y, z)` |
+| `tip_vel` | World linear velocity in m/s |
 
-Below level 4, two additional bodies represent the **OptiTrack motion-capture marker cross**:
+## From command to motion
 
-```
-tip_disc  — flat cylinder ring  (same radius as connector rings)
-  └── tip_frame  (offset 12 mm further down)
-        ├── tip_bar_x    — capsule along X axis  (r=4mm)
-        ├── tip_bar_y    — capsule along Y axis  (r=4mm)
-        ├── tip_ball_c   — sphere at centre  (r=7mm)
-        ├── tip_ball_px/nx/py/ny — 4 corner spheres  (r=5mm)
-        └── site "tip"   ← sensor measurement point  (green)
-```
+One call to `step([p2, p3, p4])` advances this pipeline:
 
-The `tip` **site** is where all sensor readings are measured — tip position, orientation, and velocity.
-
----
-
-## Mount — Fixed to World
-
-At the top, a static `mount` body is fixed at `z = 0.50 m`. It has **no joints** and never moves:
-
-```
-mount  (fixed to world, z = 0.50 m)
-  ├── mount_plate    — plywood box  (150 × 150 × 9 mm)
-  ├── post_fl/fr/bl/br — 4 aluminium corner posts  (r=8mm, h=300mm)
-  └── mount_disc     — connector disc to arm  (r=49mm, h=3mm)
+```text
+three desired pressures
+  → 0.5 s calibrated transport delay
+  → per-actuator pressure gain and positive-command bias
+  → 0.6 s first-order pouch response
+  → complete 4 × 5 pressure state, including sealed Segment 1
+  → bending moments and axial forces at every level
+  → ten 1 ms MuJoCo integration steps
+  → pose, velocity, actuator-pressure, and reservoir-pressure observations
 ```
 
----
+For column azimuth `phi_s` and pouch level `k`, the runtime uses:
 
-## Full Assembly Hierarchy
+```text
+M[k] = pressure_gain × moment_arm
+       × Σ_s P[s,k] (-sin(phi_s), cos(phi_s))
 
-```
-WORLD
-  └── mount  (fixed, z = 0.50 m)
-       ├── mount_plate, posts, mount_disc
-       │
-       └── level 0
-            ├── joint: ext0  [slide Z,  k=600 N/m,    d=30 N·s/m]
-            ├── joint: bx0   [hinge X,  k=0.30 N·m/rad, d=0.08]
-            ├── joint: by0   [hinge Y,  k=0.30 N·m/rad, d=0.08]
-            ├── geom:  ring0  [cylinder disc]
-            ├── geom:  col0_l0 … col3_l0  [4 coloured capsules]
-            ├── geom:  core0  [cylinder spine]
-            │
-            └── level 1
-                 └── level 2
-                      └── level 3
-                           └── level 4
-                                └── tip_disc
-                                     └── tip_frame
-                                          ├── tip_bar_x, tip_bar_y
-                                          ├── tip_ball_c, _px, _nx, _py, _ny
-                                          └── site "tip"  ←── sensors here
+F_axial[k] = extension_gain × Σ_s P[s,k]
 ```
 
----
+Those forces are written to `data.qfrc_applied` before every physics substep.
+This makes the model dynamic rather than a static pressure-to-pose map: mass,
+gravity, damping, elastic restoring force, actuator lag, and pressure history
+all affect the trajectory.
 
-## Mass Budget
+## Sealed Segment-1 behavior
 
-| Component | Count | Unit Mass | Total |
-|-----------|-------|-----------|-------|
-| Column capsule | 4 × 5 = 20 | ~14.9 g | ~297 g |
-| Core cylinder | 5 | ~10.5 g | ~52 g |
-| Connector ring | 5 | 6 g | 30 g |
-| Mount / tip discs | 2 | 10 g | 20 g |
-| Tip bars (X + Y) | 2 | 24 g | 48 g |
-| Tip centre ball | 1 | 32 g | 32 g |
-| Tip corner balls | 4 | 1 g | 4 g |
-| **Moving arm total** | | | **~0.35 kg** |
-| **Tip total** | | | **~0.08 kg** |
+At construction, Segment 1's requested charge is mapped through five
+pouch-specific charge gains and biases. The column is then removed from the
+live command path. Its pressures evolve through the calibrated leak and
+deformation feedback terms.
 
----
+The two recorded plumbing arrangements use different reservoir models:
 
-## Simulator Settings
+- `parallel` is the default. Pouches have individual charge offsets and leak
+  rates and do not equalize with one another.
+- `coupled` strongly equalizes the five pouch states and adds the measured
+  charge-dependent fast relaxation immediately after isolation.
 
-| Setting | Value | Description |
-|---------|-------|-------------|
-| `integrator` | `implicitfast` | Stable implicit integration for stiff systems |
-| `timestep` | 1 ms | Physics step size |
-| `gravity` | `(0, 0, −9.81)` m/s² | Standard Earth gravity |
-| Collision | disabled | `contype="0"` on all geoms — no contact physics |
+Both topologies expose the five local states as `reservoir_pressures`. This
+response is an empirical fit to the sensors; it is not a thermodynamic cavity
+or fluid-flow model.
 
----
+## Numerical model
 
-## Sensors
+The MJCF uses:
 
-Three sensors are attached to the `tip` site and read out via `data.sensordata`:
+- the `implicitfast` integrator;
+- a 1 ms physics timestep;
+- standard gravity `(0, 0, -9.81)` m/s²;
+- a 100 Hz default control rate; and
+- collision-disabled arm geometry.
 
-| Indices | Sensor | Type | Output |
-|---------|--------|------|--------|
-| `[0:3]` | `tip_pos` | `framepos` | Tip position (x, y, z) in world frame [m] |
-| `[3:7]` | `tip_quat` | `framequat` | Tip orientation quaternion (w, x, y, z) |
-| `[7:10]` | `tip_vel` | `framelinvel` | Tip linear velocity (vx, vy, vz) [m/s] |
+The model therefore solves a spring-damper rigid-body approximation of the
+arm. It reproduces the measured slow motion patterns over the calibrated
+conditions, but it should not be interpreted as a finite-element material
+model.
+
+## Calibration boundary
+
+The parameters were fitted and checked on 36 robot runs covering parallel and
+coupled plumbing, axial/circular/triangular waveforms, 1--3 psi Segment-1
+charge, 5/10 psi command peaks, and 0.1 Hz excitation. Behavior outside those
+conditions is extrapolation and should be validated against new robot data.
