@@ -1,0 +1,12 @@
+<Node name="root">
+    <RequiredPlugin pluginName="Sofa.Component.IO.Mesh"/> <!-- Needed to use components [MeshOBJLoader] -->
+    <RequiredPlugin pluginName="Sofa.GL.Component.Rendering3D"/> <!-- Needed to use components [OglModel] -->
+    <RequiredPlugin pluginName="Sofa.GL.Component.Shader"/> <!-- Needed to use components [OglShader] -->
+
+    <DefaultAnimationLoop/>
+    <Node name="oglModel">
+        <OglShader fileFragmentShaders="['shaders/toonShading.frag']" fileVertexShaders="['shaders/toonShading.vert']"/>
+        <MeshOBJLoader name="loader_dragon" filename="mesh/dragon.obj" handleSeams="1" />
+        <OglModel name="dragon" src="@loader_dragon"/>
+    </Node>
+</Node>

@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+
+<!-- A pendulum made of a string of particles connected by distance constraints -->
+<!-- Inspired by the CompliantPendulum.scn from the Compliant plugin -->
+<Node name="Root" gravity="0 -10 0" time="0" animate="0"  dt="0.01">
+    <Node name="plugins">
+        <RequiredPlugin pluginName="Sofa.Component.AnimationLoop"/> <!-- Needed to use components [FreeMotionAnimationLoop] -->
+        <RequiredPlugin pluginName="Sofa.Component.Constraint.Lagrangian.Correction"/> <!-- Needed to use components [GenericConstraintCorrection] -->
+        <RequiredPlugin pluginName="Sofa.Component.Constraint.Lagrangian.Model"/> <!-- Needed to use components [UniformLagrangianConstraint] -->
+        <RequiredPlugin pluginName="Sofa.Component.Constraint.Lagrangian.Solver"/> <!-- Needed to use components [GenericConstraintSolver] -->
+        <RequiredPlugin pluginName="Sofa.Component.Constraint.Projective"/> <!-- Needed to use components [FixedProjectiveConstraint] -->
+        <RequiredPlugin pluginName="Sofa.Component.Engine.Select"/> <!-- Needed to use components [PointsFromIndices] -->
+        <RequiredPlugin pluginName="Sofa.Component.Engine.Transform"/> <!-- Needed to use components [TransformEngine] -->
+        <RequiredPlugin pluginName="Sofa.Component.IO.Mesh"/> <!-- Needed to use components [StringMeshCreator] -->
+        <RequiredPlugin pluginName="Sofa.Component.LinearSolver.Direct"/> <!-- Needed to use components [EigenSimplicialLLT] -->
+        <RequiredPlugin pluginName="Sofa.Component.Mapping.NonLinear"/> <!-- Needed to use components [DistanceMapping] -->
+        <RequiredPlugin pluginName="Sofa.Component.Mass"/> <!-- Needed to use components [DiagonalMass] -->
+        <RequiredPlugin pluginName="Sofa.Component.ODESolver.Backward"/> <!-- Needed to use components [EulerImplicitSolver] -->
+        <RequiredPlugin pluginName="Sofa.Component.StateContainer"/> <!-- Needed to use components [MechanicalObject] -->
+        <RequiredPlugin pluginName="Sofa.Component.Topology.Container.Dynamic"/> <!-- Needed to use components [EdgeSetGeometryAlgorithms EdgeSetTopologyContainer] -->
+        <RequiredPlugin pluginName="Sofa.Component.Visual"/> <!-- Needed to use components [TrailRenderer VisualStyle] -->
+    </Node>
+
+    <DefaultVisualManagerLoop/>
+    <VisualStyle displayFlags="showVisualModels showBehaviorModels showMappings showForceFields" />
+
+    <FreeMotionAnimationLoop solveVelocityConstraintFirst="true" computeBoundingBox="false"/>
+    <BlockGaussSeidelConstraintSolver tolerance="1e-9" maxIterations="1000"/>
+    <!-- resolution = number of particles (including the fixed one) -->
+    <!-- scale = total length of the pendulum -->
+    <!-- 1m long wire -->
+    <!-- 
+    if the wire is not too much descritized (resolution around 10 or below ) then it remains stable with or 
+    without the implicit formulation of the constraint force 
+    -->
+    <StringMeshCreator name="loader" resolution="20" scale3d="1 1 1" />
+
+    <TransformEngine name="translate" input_position="@loader.position" translation="0 0 -2" />
+    <EulerImplicitSolver />
+    <EigenSimplicialLLT template="CompressedRowSparseMatrixMat3x3"/>
+    <GenericConstraintCorrection />
+    <!-- resolution = number of particles (including the fixed one) -->
+    <!-- scale = total length of the pendulum -->
+    <EdgeSetTopologyContainer name="topology" position="@translate.output_position" edges="@loader.edges" />
+    <MechanicalObject name="defoDOF" template="Vec3"  />
+    <EdgeSetGeometryAlgorithms drawEdges="true" />
+    <FixedProjectiveConstraint indices="0" />
+    <!-- 1 g for the total mass of the wire -->
+    <DiagonalMass  name="mass" totalMass="1e-3"/>
+    <Node name="extensionsNode" >
+        <MechanicalObject template="Vec1"  name="extensionsDOF" />
+        <DistanceMapping  name="distanceMapping" topology="@../topology"/>
+        <UniformLagrangianConstraint template="Vec1" iterative="false" />
+    </Node>
+
+    <Node name="visual">
+        <PointsFromIndices name="points" position="@../defoDOF.position" indices="19"/>
+        <TrailRenderer template="Vec3" position="@points.indices_position" nbSteps="50"/>
+    </Node>
+    
+</Node>

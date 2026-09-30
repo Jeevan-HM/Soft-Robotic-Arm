@@ -1,0 +1,129 @@
+/******************************************************************************
+*                 SOFA, Simulation Open-Framework Architecture                *
+*                    (c) 2006 INRIA, USTL, UJF, CNRS, MGH                     *
+*                                                                             *
+* This program is free software; you can redistribute it and/or modify it     *
+* under the terms of the GNU Lesser General Public License as published by    *
+* the Free Software Foundation; either version 2.1 of the License, or (at     *
+* your option) any later version.                                             *
+*                                                                             *
+* This program is distributed in the hope that it will be useful, but WITHOUT *
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or       *
+* FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License *
+* for more details.                                                           *
+*                                                                             *
+* You should have received a copy of the GNU Lesser General Public License    *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.        *
+*******************************************************************************
+* Authors: The SOFA Team and external contributors (see Authors.txt)          *
+*                                                                             *
+* Contact information: contact@sofa-framework.org                             *
+******************************************************************************/
+#pragma once
+
+#include <sofa/config.h>
+
+#define SOFA_CORE_ENABLE_CRSMULTIMATRIXACCESSOR 0
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#  define SOFA_TARGET Sofa.Core
+#  define SOFA_CORE_API SOFA_EXPORT_DYNAMIC_LIBRARY
+#else
+#  define SOFA_CORE_API SOFA_IMPORT_DYNAMIC_LIBRARY
+#endif
+
+
+#ifdef SOFA_CORE_TOPOLOGY_ENABLE_DEPRECATION_MESSAGE
+
+#define SOFA_CORE_TOPOLOGY_ATTRIBUTE_DEPRECATED__ALIASES_INDEX() \
+    SOFA_CORE_TOPOLOGY_ATTRIBUTE_DEPRECATED("Index aliases are deprecated, please use sofa::Index.")
+
+#else
+
+#define SOFA_CORE_TOPOLOGY_ATTRIBUTE_DEPRECATED(msg)
+#define SOFA_CORE_TOPOLOGY_ATTRIBUTE_DEPRECATED__ALIASES_INDEX()
+
+#endif // SOFA_CORE_TOPOLOGY_ENABLE_DEPRECATION_MESSAGE
+
+
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DEPRECATED__REGISTEROBJECT()
+#else
+#define SOFA_ATTRIBUTE_DEPRECATED__REGISTEROBJECT() \
+    SOFA_ATTRIBUTE_DEPRECATED("v24.12", "v26.12", "RegisterObject and the associated implicit registration is being phased out. Use ObjectRegistrationData and explicit registration from now on. See #4429 for more information.")
+#endif
+
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DISABLED__DELETED_ARGUMENTS()
+#else
+#define SOFA_ATTRIBUTE_DISABLED__DELETED_ARGUMENTS() \
+    SOFA_ATTRIBUTE_DISABLED("v25.06", "v25.12", "Signature has changed, use 'getConstraintResolution(const ConstraintParams* cParams, std::vector<ConstraintResolution*> &resTab, unsigned int &offset)' instead")
+#endif
+
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DISABLED__NAME_CHANGED()
+#else
+#define SOFA_ATTRIBUTE_DISABLED__NAME_CHANGED() \
+SOFA_ATTRIBUTE_DISABLED("v25.12", "v26.06", "Use getContactDistance or setContactDistance instead.")
+#endif
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DEPRECATED__TOBASECONSTRAINT()
+#else
+#define SOFA_ATTRIBUTE_DEPRECATED__TOBASECONSTRAINT() \
+    SOFA_ATTRIBUTE_DEPRECATED("v25.12", "v26.12", "Use toBaseLagrangianConstraint instead.")
+#endif
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DEPRECATED__TOBASEOBJECT()
+#else
+#define SOFA_ATTRIBUTE_DEPRECATED__TOBASEOBJECT() \
+SOFA_ATTRIBUTE_DEPRECATED("v26.06", "v29.06", "Use toBaseComponent instead.")
+#endif
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DISABLED__REBUILDSYSTEM()
+#else
+#define SOFA_ATTRIBUTE_DISABLED__REBUILDSYSTEM() \
+    SOFA_ATTRIBUTE_DISABLED("v25.12", "v26.06", "It was an experimental function no longer used.")
+#endif
+
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_RENAMED__COLLISIONMODEL_PROXIMITY()
+#else
+#define SOFA_ATTRIBUTE_RENAMED__COLLISIONMODEL_PROXIMITY() \
+    SOFA_ATTRIBUTE_DEPRECATED("v25.12", "v26.12", "Data 'proximity' has been renamed to 'contactDistance'")
+#endif
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_ATTRIBUTE_DISABLED__COMPUTERESIDUAL()
+#else
+#define SOFA_ATTRIBUTE_DISABLED__COMPUTERESIDUAL() \
+    SOFA_ATTRIBUTE_DISABLED("v25.12", "v26.06", "The method computeResidual is not used")
+#endif
+
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_CORE_ATTRIBUTE_REMOVE_ASSEMBLY_API()
+#else
+#define SOFA_CORE_ATTRIBUTE_REMOVE_ASSEMBLY_API() \
+    SOFA_ATTRIBUTE_DISABLED("v25.12", "v25.12", "The assembly of the linear system is no longer the responsibility of the solver. Instead, a linear system component lives along with the linear solver. This component is in charge of the assembly.")
+#endif
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_CORE_DEPRECATED_RENAME_CREATOR_BASEOBJECTCREATOR()
+#else
+#define SOFA_CORE_DEPRECATED_RENAME_CREATOR_BASEOBJECTCREATOR() \
+    SOFA_ATTRIBUTE_DISABLED("v25.12", "v26.06", "Type Creator has been renamed to BaseObjectCreator.")
+#endif
+
+#ifdef SOFA_BUILD_SOFA_CORE
+#define SOFA_CORE_DEPRECATED_RENAME_CREATORMAP_OBJECTTEMPLATECREATORMAP()
+#else
+#define SOFA_CORE_DEPRECATED_RENAME_CREATORMAP_OBJECTTEMPLATECREATORMAP() \
+    SOFA_ATTRIBUTE_DISABLED("v25.12", "v26.06", "Type CreatorMap has been renamed to ObjectTemplateCreatorMap.")
+#endif

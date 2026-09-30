@@ -1,0 +1,231 @@
+/******************************************************************************
+*                 SOFA, Simulation Open-Framework Architecture                *
+*                    (c) 2006 INRIA, USTL, UJF, CNRS, MGH                     *
+*                                                                             *
+* This program is free software; you can redistribute it and/or modify it     *
+* under the terms of the GNU Lesser General Public License as published by    *
+* the Free Software Foundation; either version 2.1 of the License, or (at     *
+* your option) any later version.                                             *
+*                                                                             *
+* This program is distributed in the hope that it will be useful, but WITHOUT *
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or       *
+* FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License *
+* for more details.                                                           *
+*                                                                             *
+* You should have received a copy of the GNU Lesser General Public License    *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.        *
+*******************************************************************************
+* Authors: The SOFA Team and external contributors (see Authors.txt)          *
+*                                                                             *
+* Contact information: contact@sofa-framework.org                             *
+******************************************************************************/
+#pragma once
+
+#include <sofa/config/sharedlibrary_defines.h>
+#include <sofa/config/build_option_dump_visitor.h>
+#include <sofa/config/build_option_bbox.h>
+
+#include <cstddef> // For nullptr
+#include <limits> // std::numeric_limits<>
+
+// fixes CGAL plugin build errors (default value: 5)
+#define BOOST_PARAMETER_MAX_ARITY 12
+
+/* #undef SOFA_DETECTIONOUTPUT_FREEMOTION */
+
+/* #undef SOFA_FLOAT */
+#define SOFA_DOUBLE
+
+/* #undef SOFA_WITH_FLOAT */
+#define SOFA_WITH_DOUBLE
+
+/* #undef SOFA_WITH_DEVTOOLS */
+#define SOFA_ENABLE_SCOPED_ADVANCED_TIMER
+
+#ifdef WIN32
+#  ifndef UNICODE
+#    define UNICODE
+#  endif
+#endif // WIN32
+
+#ifdef SOFA_FLOAT
+typedef float SReal;
+#else
+typedef double SReal;
+#endif
+
+/// User-defined literals allowing to convert any floating-point to a SReal
+constexpr SReal operator""_sreal(long double real)
+{
+    return static_cast<SReal>(real);
+}
+/// User-defined literals allowing to convert any integer to a SReal
+constexpr SReal operator""_sreal(unsigned long long int integer)
+{
+    return static_cast<SReal>(integer);
+}
+
+#if defined(_WIN32)
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#endif
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#undef WIN32_LEAN_AND_MEAN
+#endif
+
+#ifdef BOOST_NO_EXCEPTIONS
+#  include<exception>
+
+namespace boost
+{
+    inline void throw_exception(std::exception const & e)
+    {
+        return;
+    }
+}
+#endif // BOOST_NO_EXCEPTIONS
+
+
+#ifdef _MSC_VER
+#  ifndef _USE_MATH_DEFINES
+#    define _USE_MATH_DEFINES 1 // required to get M_PI from math.h
+#  endif
+// Visual C++ does not include stdint.h
+typedef signed __int8		int8_t;
+typedef signed __int16		int16_t;
+typedef signed __int32		int32_t;
+typedef signed __int64		int64_t;
+typedef unsigned __int8		uint8_t;
+typedef unsigned __int16	uint16_t;
+typedef unsigned __int32	uint32_t;
+typedef unsigned __int64	uint64_t;
+#else
+#  include <stdint.h>
+#endif
+
+#define sofa_do_concat2(a,b) a ## b
+#define sofa_do_concat(a,b) sofa_do_concat2(a,b)
+#define sofa_concat(a,b) sofa_do_concat(a,b)
+
+#define sofa_do_tostring(a) #a
+#define sofa_tostring(a) sofa_do_tostring(a)
+
+#if defined(_WIN32)
+    #define SOFA_PRAGMA_MESSAGE(text) __pragma(message(__FILE__ "(" sofa_tostring(__LINE__) "): " text))
+    #define SOFA_PRAGMA_WARNING(text) __pragma(message(__FILE__ "(" sofa_tostring(__LINE__) "): warning: " text))
+    #define SOFA_PRAGMA_ERROR(text) __pragma(message(__FILE__ "(" sofa_tostring(__LINE__) "): error: " text))
+#elif defined(__clang__)
+    #define SOFA_DO_PRAGMA(x) _Pragma(#x)
+    #define SOFA_PRAGMA_MESSAGE(text) SOFA_DO_PRAGMA(message text)
+    #define SOFA_PRAGMA_WARNING(text) SOFA_DO_PRAGMA(GCC warning text)
+    #define SOFA_PRAGMA_ERROR(text) SOFA_DO_PRAGMA(GCC error text)
+#else
+    #define SOFA_DO_PRAGMA(x) _Pragma(#x)
+    #define SOFA_PRAGMA_MESSAGE(text) SOFA_DO_PRAGMA(message #text)
+    #define SOFA_PRAGMA_WARNING(text) SOFA_DO_PRAGMA(GCC warning #text)
+    #define SOFA_PRAGMA_ERROR(text) SOFA_DO_PRAGMA(GCC error #text)
+#endif
+
+/************* DEPRECATION MACROS *************/
+
+// Empty class to be used to highlight deprecated objects at compilation time.
+class DeprecatedAndRemoved {};
+
+#if defined(_WIN32) || defined(__clang__)
+    #define SOFA_HEADER_DEPRECATED(deprecateDate, disableDate, newHeader) \
+        SOFA_PRAGMA_WARNING( \
+            "This header has been DEPRECATED since " deprecateDate ". " \
+            "You have until " disableDate " to fix your code. " \
+            "To fix this warning you must include " newHeader " instead." )
+
+    #define SOFA_HEADER_DISABLED(deprecateDate, disableDate, newHeader) \
+        SOFA_PRAGMA_ERROR( \
+            "This header has been DISABLED since " disableDate " " \
+            "after being deprecated on " deprecateDate ". " \
+            "To fix this error you must include " newHeader " instead. " )
+
+    #define SOFA_HEADER_DEPRECATED_NOT_REPLACED(deprecateDate, disableDate) \
+        SOFA_PRAGMA_WARNING( \
+            "This header has been DEPRECATED since " deprecateDate ". " \
+            "You have until " disableDate " to fix your code. " \
+            "It will not be replaced by another one. " )
+
+    #define SOFA_HEADER_DISABLED_NOT_REPLACED(deprecateDate, disableDate) \
+        SOFA_PRAGMA_ERROR( \
+            "This header has been DISABLED since " disableDate " " \
+            "after being deprecated on " deprecateDate ". "\
+            "It is not replaced by another one. " \
+            "Contact the SOFA Consortium for more information. " )
+#else
+	#define SOFA_HEADER_DEPRECATED(deprecateDate, disableDate, newHeader) \
+        SOFA_PRAGMA_WARNING( \
+            This header has been DEPRECATED since deprecateDate. \
+            You have until disableDate to fix your code. \
+            To fix this warning you must include newHeader instead. )
+
+	#define SOFA_HEADER_DISABLED(deprecateDate, disableDate, newHeader) \
+        SOFA_PRAGMA_ERROR( \
+            This header has been DISABLED since disableDate \
+            after being deprecated on deprecateDate. \
+            To fix this error you must include newHeader instead. )
+
+    #define SOFA_HEADER_DEPRECATED_NOT_REPLACED(deprecateDate, disableDate) \
+        SOFA_PRAGMA_WARNING( \
+            This header has been DEPRECATED since deprecateDate. \
+            You have until disableDate to fix your code. \
+            It will not be replaced by another one. )
+
+    #define SOFA_HEADER_DISABLED_NOT_REPLACED(deprecateDate, disableDate) \
+        SOFA_PRAGMA_ERROR( \
+            This header has been DISABLED since disableDate \
+            after being deprecated on deprecateDate. \
+            It is not replaced by another one. \
+            Contact the SOFA Consortium for more information. )
+#endif
+
+
+#define SOFA_ATTRIBUTE_DEPRECATED(deprecateDate, removeDate, toFixMsg) \
+    [[deprecated( \
+        "It is still usable but has been DEPRECATED since " deprecateDate ". " \
+        "You have until " removeDate " to fix your code. " toFixMsg)]]
+
+// The following macro is empty because it is supposed to be used in conjunction
+// when an attribute of type DeprecatedAndRemoved. It should not contain a [[deprecated]]
+// attribute, because if it does, the "deprecated" warning is showed in every constructor's
+// for every disabled attribute.
+#define SOFA_ATTRIBUTE_DISABLED(deprecateDate, disableDate, toFixMsg)
+
+
+
+/**********************************************/
+
+#define SOFA_DECL_CLASS(name) SOFA_PRAGMA_WARNING("The macro SOFA_DECL_CLASS is no longer used")
+#define SOFA_LINK_CLASS(name) SOFA_PRAGMA_WARNING("The macro SOFA_LINK_CLASS is no longer used")
+
+// Prevent compiler warnings about 'unused variables'.
+// This should be used when a parameter name is needed (e.g. for
+// documentation purposes) even if it is not used in the code.
+#define SOFA_UNUSED(x) (void)(x)
+
+// utility for debug tracing
+#ifdef _MSC_VER
+    #define SOFA_CLASS_METHOD ( std::string(this->getClassName()) + "::" + __FUNCTION__ + " " )
+#else
+    #define SOFA_CLASS_METHOD ( std::string(this->getClassName()) + "::" + __func__ + " " )
+#endif
+
+namespace sofa
+{
+
+using SignedIndex = int32_t;
+using Index = uint32_t;
+using Size = uint32_t;
+
+constexpr Index InvalidID = (std::numeric_limits<Index>::max)();
+
+}
+

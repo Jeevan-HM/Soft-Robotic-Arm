@@ -1,0 +1,65 @@
+/*****************************************************************************
+ *                - Copyright (C) 2020-Present InfinyTech3D -                *
+ *                                                                           *
+ * This file is part of the InfinyToolkit plugin for the SOFA framework.     *
+ *                                                                           *
+ * This file is dual-licensed:                                               *
+ *                                                                           *
+ * 1) Commercial License:                                                    *
+ *      This file may be used under the terms of a valid commercial license  *
+ *      agreement provided wih the software by InfinyTech3D.                 *
+ *                                                                           *
+ * 2) GNU General Public License (GPLv3) Usage                               *
+ *      Alternatively, this file may be used under the terms of the          *
+ *      GNU General Public License version 3 as published by the             *
+ *      Free Software Foundation: https://www.gnu.org/licenses/gpl-3.0.html  *
+ *                                                                           *
+ * Contact: contact@infinytech3d.com                                         *
+ * Further information: https://infinytech3d.com                             *
+ ****************************************************************************/
+#pragma once
+
+#include <InfinyToolkit/config.h>
+#include <InfinyToolkit/InteractionTools/BaseJawModel.h>
+
+#include <sofa/component/solidmechanics/spring/SpringForceField.h>
+#include <sofa/component/constraint/projective/AttachProjectiveConstraint.h>
+
+namespace sofa::infinytoolkit
+{
+
+typedef sofa::component::solidmechanics::spring::SpringForceField< sofa::defaulttype::Vec3Types > SpringFF;
+typedef sofa::component::constraint::projective::AttachProjectiveConstraint< sofa::defaulttype::Vec3Types > AttachConstraint;
+
+
+class SOFA_INFINYTOOLKIT_API GrasperJawModel : public BaseJawModel
+{
+public:
+	SOFA_CLASS(GrasperJawModel, sofa::infinytoolkit::BaseJawModel);
+	
+	GrasperJawModel();
+
+	virtual ~GrasperJawModel() = default;
+	
+	void performAction() override;
+	void stopAction() override;
+	void activateImpl() override;
+	void deActivateImpl() override;
+
+	/// Main API public method to launch the action of the Jaw
+	void performSecondaryAction() override;
+	/// Main API public method to stop the action of the Jaw
+	void stopSecondaryAction() override;
+	
+	Data<SReal> d_stiffness;
+	SingleLink<GrasperJawModel, SpringFF, BaseLink::FLAG_STOREPATH | BaseLink::FLAG_STRONGLINK> l_springFF;
+
+protected:
+	bool initImpl() override;
+	int createStiffSpringFF();
+	void addJawSprings();
+
+};
+					
+} // namespace sofa::infinytoolkit
+	

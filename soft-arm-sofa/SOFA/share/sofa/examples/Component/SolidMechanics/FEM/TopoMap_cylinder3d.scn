@@ -1,0 +1,56 @@
+<!-- Mechanical MassSpring Group Basic Example -->
+<Node name="root" dt="0.05" showBoundingTree="0" gravity="0 0 0">
+    <RequiredPlugin pluginName="Sofa.Component.Collision.Detection.Algorithm"/> <!-- Needed to use components [BVHNarrowPhase BruteForceBroadPhase CollisionPipeline] -->
+    <RequiredPlugin pluginName="Sofa.Component.Collision.Detection.Intersection"/> <!-- Needed to use components [MinProximityIntersection] -->
+    <RequiredPlugin pluginName="Sofa.Component.Collision.Geometry"/> <!-- Needed to use components [TriangleCollisionModel] -->
+    <RequiredPlugin pluginName="Sofa.Component.Collision.Response.Contact"/> <!-- Needed to use components [CollisionResponse] -->
+    <RequiredPlugin pluginName="Sofa.Component.Constraint.Projective"/> <!-- Needed to use components [FixedPlaneProjectiveConstraint FixedProjectiveConstraint] -->
+    <RequiredPlugin pluginName="Sofa.Component.Engine.Select"/> <!-- Needed to use components [BoxROI] -->
+    <RequiredPlugin pluginName="Sofa.Component.IO.Mesh"/> <!-- Needed to use components [MeshGmshLoader] -->
+    <RequiredPlugin pluginName="Sofa.Component.LinearSolver.Iterative"/> <!-- Needed to use components [CGLinearSolver] -->
+    <RequiredPlugin pluginName="Sofa.Component.Mapping.Linear"/> <!-- Needed to use components [IdentityMapping] -->
+    <RequiredPlugin pluginName="Sofa.Component.Mass"/> <!-- Needed to use components [DiagonalMass] -->
+    <RequiredPlugin pluginName="Sofa.Component.MechanicalLoad"/> <!-- Needed to use components [TrianglePressureForceField] -->
+    <RequiredPlugin pluginName="Sofa.Component.ODESolver.Backward"/> <!-- Needed to use components [EulerImplicitSolver] -->
+    <RequiredPlugin pluginName="Sofa.Component.SolidMechanics.FEM.Elastic"/> <!-- Needed to use components [TetrahedralCorotationalFEMForceField TriangularFEMForceField] -->
+    <RequiredPlugin pluginName="Sofa.Component.SolidMechanics.Spring"/> <!-- Needed to use components [TriangularBendingSprings] -->
+    <RequiredPlugin pluginName="Sofa.Component.StateContainer"/> <!-- Needed to use components [MechanicalObject] -->
+    <RequiredPlugin pluginName="Sofa.Component.Topology.Container.Dynamic"/> <!-- Needed to use components [TetrahedronSetGeometryAlgorithms TetrahedronSetTopologyContainer TetrahedronSetTopologyModifier TriangleSetTopologyContainer TriangleSetTopologyModifier] -->
+    <RequiredPlugin pluginName="Sofa.Component.Topology.Mapping"/> <!-- Needed to use components [Tetra2TriangleTopologicalMapping] -->
+    <RequiredPlugin pluginName="Sofa.Component.Visual"/> <!-- Needed to use components [VisualStyle] -->
+    <RequiredPlugin pluginName="Sofa.GL.Component.Rendering3D"/> <!-- Needed to use components [OglModel] -->
+    <VisualStyle displayFlags="showBehaviorModels" />
+    <CollisionPipeline verbose="0" />
+    <BruteForceBroadPhase/>
+    <BVHNarrowPhase/>
+    <CollisionResponse response="PenalityContactForceField" />
+    <MinProximityIntersection name="Proximity" alarmDistance="0.8" contactDistance="0.5" />
+    <DefaultAnimationLoop/>
+    
+    <Node name="TT">
+        <!-- <StaticSolver iterations="140" /> -->
+        <EulerImplicitSolver name="cg_odesolver" printLog="false"  rayleighStiffness="0.1" rayleighMass="0.1" />
+        <CGLinearSolver iterations="25" name="linear solver" tolerance="1.0e-9" threshold="1.0e-9" />
+        <MeshGmshLoader filename="mesh/cylinder.msh" name="loader" />
+        <MechanicalObject src="@loader" name="Volume" />
+        <include href="Objects/TetrahedronSetTopology.xml" src="@loader" />
+        <DiagonalMass massDensity="0.5" />
+        <FixedPlaneProjectiveConstraint direction="0 0 1" dmin="-0.1" dmax="0.1" />
+        <FixedProjectiveConstraint indices="0" />
+        <TetrahedralCorotationalFEMForceField name="FEM" youngModulus="360" poissonRatio="0.3" method="large" />
+        <Node name="T">
+            <TriangleSetTopologyContainer name="Container" />
+            <TriangleSetTopologyModifier />
+            <Tetra2TriangleTopologicalMapping input="@../Container" output="@Container" />
+            <BoxROI name="BoxROI" position="@../Volume.position" triangles="@Container.triangles" box="-0.5 -0.5 0.9 0.5 0.5 1.1" drawTriangles="true"/>
+            <TriangularFEMForceField name="FEM" youngModulus="60" poissonRatio="0.3" method="large" />
+            <TriangularBendingSprings name="FEM-Bend" stiffness="300" damping="1.0" />
+            <TrianglePressureForceField triangleList="@boxSelection.triangleIndices" pressure="0.4 0 0" />
+            <TriangleCollisionModel />
+            <Node name="Visu">
+                <OglModel name="Visual" color="blue" />
+                <IdentityMapping input="@../../Volume" output="@Visual" />
+            </Node>
+        </Node>
+    </Node>
+</Node>

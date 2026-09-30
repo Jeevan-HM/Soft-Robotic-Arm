@@ -1,0 +1,182 @@
+﻿/******************************************************************************
+*                 SOFA, Simulation Open-Framework Architecture                *
+*                    (c) 2006 INRIA, USTL, UJF, CNRS, MGH                     *
+*                                                                             *
+* This program is free software; you can redistribute it and/or modify it     *
+* under the terms of the GNU Lesser General Public License as published by    *
+* the Free Software Foundation; either version 2.1 of the License, or (at     *
+* your option) any later version.                                             *
+*                                                                             *
+* This program is distributed in the hope that it will be useful, but WITHOUT *
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or       *
+* FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License *
+* for more details.                                                           *
+*                                                                             *
+* You should have received a copy of the GNU Lesser General Public License    *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.        *
+*******************************************************************************
+* Authors: The SOFA Team and external contributors (see Authors.txt)          *
+*                                                                             *
+* Contact information: contact@sofa-framework.org                             *
+******************************************************************************/
+#pragma once
+#include <sofa/component/solidmechanics/fem/elastic/BaseLinearElasticityFEMForceField.h>
+#include <sofa/core/ObjectFactory.h>
+#include <sofa/core/behavior/ForceField.inl>
+#include <sofa/component/solidmechanics/fem/elastic/impl/LameParameters.h>
+
+namespace sofa::component::solidmechanics::fem::elastic
+{
+
+template <class DataTypes>
+BaseLinearElasticityFEMForceField<DataTypes>::BaseLinearElasticityFEMForceField()
+    : d_poissonRatio(initData(&d_poissonRatio, { defaultPoissonRatioValue }, "poissonRatio", "FEM Poisson Ratio in Hooke's law [0,0.5["))
+    , d_youngModulus(initData(&d_youngModulus, { defaultYoungModulusValue }, "youngModulus", "FEM Young's Modulus in Hooke's law"))
+{
+    d_poissonRatio.setRequired(true);
+    d_youngModulus.setRequired(true);
+
+    this->addUpdateCallback("checkPoissonRatio", {&d_poissonRatio}, [this](const core::DataTracker& )
+    {
+        checkPoissonRatio();
+        return this->getComponentState();
+    }, {});
+
+    this->addUpdateCallback("checkPositiveYoungModulus", {&d_youngModulus}, [this](const core::DataTracker& )
+    {
+        checkYoungModulus();
+        return this->getComponentState();
+    }, {});
+}
+
+template <class DataTypes>
+void BaseLinearElasticityFEMForceField<DataTypes>::checkPoissonRatio()
+{
+    auto poissonRatio = sofa::helper::getWriteAccessor(d_poissonRatio);
+    for (auto& p : poissonRatio)
+    {
+        if (p < 0 || p >= 0.5)
+        {
+            msg_warning() << "Poisson's ratio must be in the range [0, 0.5), "
+                    "but an out-of-bounds value has been provided (" <<
+                    p << "). It is set to " << defaultPoissonRatioValue <<
+                    " to ensure the correct behavior";
+            p = defaultPoissonRatioValue;
+        }
+    }
+}
+
+template <class DataTypes>
+void BaseLinearElasticityFEMForceField<DataTypes>::checkYoungModulus()
+{
+    auto youngModulus = sofa::helper::getWriteAccessor(d_youngModulus);
+    for (auto& y : youngModulus)
+    {
+        if (y < 0)
+        {
+            msg_warning() << "Young's modulus must be positive, but "
+                    "a negative value has been provided (" << y <<
+                    "). It is set to " << defaultYoungModulusValue <<
+                    " to ensure the correct behavior";
+            y = defaultYoungModulusValue;
+        }
+    }
+}
+
+template <class DataTypes>
+void BaseLinearElasticityFEMForceField<DataTypes>::init()
+{
+    core::behavior::ForceField<DataTypes>::init();
+    this->validateTopology();
+
+    if (this->isComponentStateInvalid())
+    {
+        return;
+    }
+
+    checkYoungModulus();
+    checkPoissonRatio();
+}
+
+template <class DataTypes>
+void BaseLinearElasticityFEMForceField<DataTypes>::setPoissonRatio(Real val)
+{
+    d_poissonRatio.setValue({val});
+}
+
+template <class DataTypes>
+void BaseLinearElasticityFEMForceField<DataTypes>::setYoungModulus(Real val)
+{
+    d_youngModulus.setValue({val});
+}
+
+template <class DataTypes>
+auto BaseLinearElasticityFEMForceField<DataTypes>::getVecRealInElement(sofa::Size elementId, const Data<VecReal>& data, Real defaultValue) const
+-> Real
+{
+    const auto& dataValue = data.getValue();
+    if (dataValue.size() > elementId)
+    {
+        return dataValue[elementId];
+    }
+    if (!dataValue.empty())
+    {
+        return dataValue[0];
+    }
+
+    msg_warning() << "'" << data.getName() << "' Data field is empty. Using default value " << defaultValue;
+    return defaultValue;
+}
+
+
+template <class DataTypes>
+auto BaseLinearElasticityFEMForceField<DataTypes>::getYoungModulusInElement(sofa::Size elementId) const
+-> Real
+{
+    return getVecRealInElement(elementId, d_youngModulus, defaultYoungModulusValue);
+}
+
+template <class DataTypes>
+auto BaseLinearElasticityFEMForceField<DataTypes>::getPoissonRatioInElement(sofa::Size elementId) const
+-> Real
+{
+    return getVecRealInElement(elementId, d_poissonRatio, defaultPoissonRatioValue);
+}
+
+template <class DataTypes>
+auto BaseLinearElasticityFEMForceField<DataTypes>::toLameParameters(
+    const _2DMaterials elementType,
+    const Real youngModulus,
+    const Real poissonRatio) -> std::pair<Real, Real>
+{
+    SOFA_UNUSED(elementType);
+
+    LameLambda<Real> lambda { 0 };
+    LameMu<Real> mu { 0 };
+
+    sofa::component::solidmechanics::fem::elastic::toLameParameters<2, Real>(
+        YoungModulus<Real>(youngModulus), PoissonRatio<Real>(poissonRatio),
+        lambda, mu);
+
+    return {lambda.get(), mu.get()};
+}
+
+template <class DataTypes>
+auto BaseLinearElasticityFEMForceField<DataTypes>::toLameParameters(
+    const _3DMaterials elementType,
+    const Real youngModulus,
+    const Real poissonRatio) -> std::pair<Real, Real>
+{
+    SOFA_UNUSED(elementType);
+
+    LameLambda<Real> lambda { 0 };
+    LameMu<Real> mu { 0 };
+
+    sofa::component::solidmechanics::fem::elastic::toLameParameters<3, Real>(
+        YoungModulus<Real>(youngModulus), PoissonRatio<Real>(poissonRatio),
+        lambda, mu);
+
+    return {lambda.get(), mu.get()};
+}
+
+}

@@ -1,0 +1,28 @@
+# Git info for Registration
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+06ab29453a758b675cced5f3121f49016f84f836
+
+## Branches containing current commit
+## git branch -a --contains 06ab29453a758b675cced5f3121f49016f84f836 
+  master
+* v26.06
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/master
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://www.github.com/sofa-framework/Registration.git (fetch)
+origin	https://www.github.com/sofa-framework/Registration.git (push)
+
+## More info
+## git log --pretty -n 1
+commit 06ab29453a758b675cced5f3121f49016f84f836
+Author: Frederick Roy <fredroy@users.noreply.github.com>
+Date:   Wed May 13 10:14:17 2026 +0900
+
+    Merge pull request #34 from hugtalbot/202601_lifecycle_header_deprecated
+    
+    Update includes for CollisionModels

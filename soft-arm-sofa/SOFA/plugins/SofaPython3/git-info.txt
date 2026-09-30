@@ -1,0 +1,23 @@
+# Git info for SofaPython3
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+727ce05f6956369a04f67e3f98da73de33f37a4a
+
+## Branches containing current commit
+## git branch -a --contains 727ce05f6956369a04f67e3f98da73de33f37a4a 
+* v26.06
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://www.github.com/sofa-framework/SofaPython3.git (fetch)
+origin	https://www.github.com/sofa-framework/SofaPython3.git (push)
+
+## More info
+## git log --pretty -n 1
+commit 727ce05f6956369a04f67e3f98da73de33f37a4a
+Author: Paul Baksic <30337881+bakpaul@users.noreply.github.com>
+Date:   Wed Jul 15 11:35:58 2026 +0200
+
+    Add all py examples and data to install (#627)

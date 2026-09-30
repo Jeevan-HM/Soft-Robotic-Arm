@@ -1,0 +1,21 @@
+<!-- For more details see: https://wiki.sofa-framework.org/tdev/wiki/Notes/NewLoaderArchitecture -->
+<Node name="Root" gravity="0 -9.81 0" dt="0.02">
+    <RequiredPlugin pluginName="Sofa.Component.SceneUtility"/> <!-- Needed to use components [AddDataRepository] -->
+    <RequiredPlugin pluginName="Sofa.Component.IO.Mesh"/> <!-- Needed to use components [MeshVTKLoader] -->
+    <RequiredPlugin pluginName="Sofa.Component.Visual"/> <!-- Needed to use components [VisualStyle] -->
+    <RequiredPlugin pluginName="Sofa.GL.Component.Rendering3D"/> <!-- Needed to use components [OglModel] -->
+
+    <AddDataRepository path="../../../../share" />
+
+    <DefaultAnimationLoop/>
+    <VisualStyle displayFlags="showVisual showBehaviorModels showForceFields showCollision showMapping" />
+
+    <Node name="vtk file">
+        <MeshVTKLoader name="VtkLoader" filename="mesh/liver.vtk" flipNormals="0"/>
+        <OglModel name="VisualModel" src="@VtkLoader" color="red"  texturename="textures/liver-texture-square.png" />
+    </Node>
+    <Node name="vtk polyline file" activated="true">
+        <MeshVTKLoader name="VtkLoader" filename="mesh/skull.vtp" scale3d="1000 1000 1000" translation="100 250 100" triangulate="1" />
+        <OglModel name="VisualModel" src="@VtkLoader" color="white" />
+    </Node>
+</Node>

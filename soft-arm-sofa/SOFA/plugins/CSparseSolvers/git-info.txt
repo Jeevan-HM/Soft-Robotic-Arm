@@ -1,0 +1,26 @@
+# Git info for CSparseSolvers
+
+## Current commit
+## git rev-parse --abbrev-ref HEAD
+a8d473bf94d2a53d6062dda496596d711d22eed8
+
+## Branches containing current commit
+## git branch -a --contains a8d473bf94d2a53d6062dda496596d711d22eed8 
+  master
+* v26.06
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/master
+  remotes/origin/v26.06
+
+## Remotes
+## git remote -vv 
+origin	https://www.github.com/sofa-framework/CSparseSolvers.git (fetch)
+origin	https://www.github.com/sofa-framework/CSparseSolvers.git (push)
+
+## More info
+## git log --pretty -n 1
+commit a8d473bf94d2a53d6062dda496596d711d22eed8
+Author: Hugo <hugo.talbot@sofa-framework.org>
+Date:   Tue Nov 25 16:07:59 2025 +0100
+
+    Apply new factory registration mechanism (#6)
