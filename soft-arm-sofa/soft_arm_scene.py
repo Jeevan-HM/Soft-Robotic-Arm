@@ -139,7 +139,7 @@ def _load_pouch_surfaces(
 def createScene(
     root_node,
     cfg: Optional[ArmConfig] = None,
-    enable_pressure_panel: bool = False,
+    enable_pressure_panel: bool = True,
 ):
     """Build the SOFA scene graph for the soft arm.
 
