@@ -19,3 +19,6 @@ wheels/
 
 # macOS metadata
 .DS_Store
+
+# SOFA framework (installed from GitHub, not tracked)
+soft-arm/SOFA/
