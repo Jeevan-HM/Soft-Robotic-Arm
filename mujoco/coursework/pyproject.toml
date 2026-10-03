@@ -1,0 +1,23 @@
+[project]
+name = "soft-robotic-arm"
+version = "0.1.0"
+description = "ArmConfig and MuJoCo MJCF builder for the fabric pneumatic soft arm"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["soft robotics", "mujoco", "pneumatic", "simulation"]
+dependencies = [
+    "mujoco>=3.5.0",
+    "numpy>=1.24",
+]
+
+[project.urls]
+Repository = "https://github.com/Jeevan-HM/Soft-Robotic-Arm"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["soft_robotic_arm*"]
