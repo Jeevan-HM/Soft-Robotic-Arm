@@ -132,9 +132,9 @@ class TrackingResult:
         """Plot path, error, and commands; imports Matplotlib only on demand."""
         try:
             import matplotlib.pyplot as plt
-        except ImportError as exc:  # pragma: no cover - depends on optional extra
+        except ImportError as exc:  # pragma: no cover - dependency corruption
             raise ImportError(
-                "plotting requires `pip install soft-robotic-arm[coursework]`"
+                "plotting requires Matplotlib; reinstall `soft-robotic-arm`"
             ) from exc
 
         lateral_error = np.linalg.norm(

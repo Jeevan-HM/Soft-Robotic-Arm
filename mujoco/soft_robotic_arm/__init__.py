@@ -10,7 +10,7 @@ from .evaluation import (
 from .model import ArmConfig, build_arm_xml
 from .simulator import SoftArmSim
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 
 def make_sim(
