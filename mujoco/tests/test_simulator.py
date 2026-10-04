@@ -102,12 +102,29 @@ def test_coursework_sim_commands_all_four_segments_and_reports_pouches():
     )
 
 
+def test_coursework_sim_commands_all_twenty_pouches_independently():
+    sim = make_sim(control_hz=100, seed=0)
+    command = np.linspace(0.0, 9.0, 20).reshape(4, 5)
+
+    obs = sim.step(command)
+    logged = sim.get_pressure_log()["p_cmd"][0]
+
+    assert obs["time"] == pytest.approx(0.01)
+    np.testing.assert_allclose(logged, command)
+    assert not np.allclose(logged, logged.mean(axis=1, keepdims=True))
+
+
 @pytest.mark.parametrize(
     "bad_command",
-    ([1.0, 2.0, 3.0], [1.0, 2.0, 3.0, 4.0, 5.0], np.zeros((4, 5))),
+    (
+        [1.0, 2.0, 3.0],
+        [1.0, 2.0, 3.0, 4.0, 5.0],
+        np.zeros((5, 4)),
+        np.zeros((4, 4)),
+    ),
 )
-def test_coursework_sim_requires_exactly_four_segment_commands(bad_command):
-    with pytest.raises(ValueError, match=r"shape \(4,\)"):
+def test_coursework_sim_rejects_invalid_command_shapes(bad_command):
+    with pytest.raises(ValueError, match=r"\(4, 5\)"):
         make_sim().step(bad_command)
 
 

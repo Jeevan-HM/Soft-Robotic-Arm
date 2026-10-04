@@ -1,6 +1,6 @@
 [project]
 name = "soft-robotic-arm"
-version = "0.3.0"
+version = "0.4.0"
 description = "MuJoCo coursework model and calibrated digital twin for a pneumatic soft arm"
 readme = "README.md"
 requires-python = ">=3.10"

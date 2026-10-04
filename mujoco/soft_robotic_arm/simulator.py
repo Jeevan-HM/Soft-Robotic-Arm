@@ -18,10 +18,9 @@ Usage
     obs["pouch_pressures"]   # (4, 5) simulated sensor readings [psi]
 
 The packaged calibration supplies all default mechanics, actuator, sensor,
-and reservoir parameters.  The calibrated public ``step()`` accepts exactly a
-three-vector of absolute pressure setpoints for Segments 2--4. Full pressure
-matrices remain available only for low-level calibration replay with an
-explicit ``ArmConfig``.
+and reservoir parameters. The measured public ``step()`` accepts exactly a
+three-vector of absolute pressure setpoints for Segments 2--4. The coursework
+simulator accepts either four segment pressures or a 4-by-5 pouch matrix.
 
 Reservoir topology
 ------------------
@@ -419,9 +418,10 @@ class SoftArmSim:
     def step(self, p_cmd_psi) -> dict:
         """Advance one control tick (100 Hz).
 
-        The coursework interface requires ``[S1, S2, S3, S4]``. The measured
+        The coursework interface accepts either one pressure per segment with
+        shape ``(4,)`` or one pressure per pouch with shape ``(4, 5)``. Rows
+        are Segments S1--S4 and columns are Pouches P1--P5. The measured
         calibration interface requires ``[S2, S3, S4]`` because S1 is sealed.
-        Full arrays remain available only to the low-level mechanics path.
         """
         cfg = self.cfg
         p_cmd = np.asarray(p_cmd_psi, dtype=float)
@@ -429,13 +429,16 @@ class SoftArmSim:
             raise ValueError("pressure command must contain only finite values")
 
         if self.strict_segment_commands:
-            expected = (cfg.n_segments,)
-            if p_cmd.shape != expected:
+            segment_shape = (cfg.n_segments,)
+            pouch_shape = (cfg.n_segments, cfg.n_pouches)
+            if p_cmd.shape == segment_shape:
+                p_cmd = np.tile(p_cmd[:, None], (1, cfg.n_pouches))
+            elif p_cmd.shape != pouch_shape:
                 raise ValueError(
                     "coursework pressure command must have shape (4,) for "
-                    f"Segments 1, 2, 3, and 4; got {p_cmd.shape}"
+                    "S1--S4 or (4, 5) for every segment and pouch; "
+                    f"got {p_cmd.shape}"
                 )
-            p_cmd = np.tile(p_cmd[:, None], (1, cfg.n_pouches))
         elif self.uses_robot_calibration:
             expected = (cfg.n_segments - 1,)
             if p_cmd.shape != expected:

@@ -10,7 +10,7 @@ from .evaluation import (
 from .model import ArmConfig, build_arm_xml
 from .simulator import SoftArmSim
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 
 def make_sim(
@@ -21,11 +21,10 @@ def make_sim(
 ) -> SoftArmSim:
     """Construct the barebones four-segment coursework simulator.
 
-    ``step([p1, p2, p3, p4])`` commands Segments 1--4 directly. Each scalar
-    setpoint is broadcast to that segment's five pouches. The arm mechanics
-    and pouch-sensor response come from the measured calibration, while the
-    teaching command interface is deliberately symmetric and leaves controller
-    design to the student.
+    ``step([p1, p2, p3, p4])`` commands Segments 1--4, broadcasting each value
+    to its five pouches. ``step(pouch_command)`` with shape ``(4, 5)`` commands
+    all twenty pouches independently: rows are S1--S4 and columns are P1--P5.
+    The mechanics and pouch-sensor response come from the measured calibration.
     """
     calibration = RobotCalibration.load()
     measured = calibration.simulator_kwargs("parallel", 0.0)
