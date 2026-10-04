@@ -2,7 +2,7 @@
 
 This document describes the single MuJoCo robot model used by the repository.
 The machine-readable source of fitted values is
-[`calibration.json`](calibration.json); do not duplicate or tune
+[`calibration.json`](../soft_robotic_arm/data/calibration.json); do not duplicate or tune
 values in application code.
 
 The calibration was fitted to 36 recorded robot conditions at 0.1 Hz. It
@@ -32,9 +32,11 @@ Segment 3 / col 2 W-+-E Segment 1 / col 0 (sealed)
 | 3 | 2 | 180° | Commanded actuator `p3` |
 | 4 | 3 | 270° | Commanded actuator `p4` |
 
-`SoftArmSim()` selects the calibrated parallel topology, charges Segment 1 to
+`make_sim()` selects the calibrated parallel topology, charges Segment 1 to
 2 psi, and accepts `step([p2, p3, p4])`. To reproduce a coupled-plumbing run,
-construct `SoftArmSim(topology="coupled", reservoir_pressure_psi=x)`.
+call `make_sim(topology="coupled", reservoir_pressure_psi=x)`. Both are public
+imports from `soft_robotic_arm`; `SoftArmSim` remains available when direct
+access to the simulator type is useful.
 
 ## Geometry and mass
 
@@ -104,8 +106,10 @@ delay, column calibration, and first-order pneumatic response.
 
 The bias applies only above a zero command. After the delayed desired pressure
 is mapped to its physical target, each pouch follows the target with the
-calibrated first-order time constant. Commands and states are clamped to the
-11 psi model limit.
+calibrated first-order time constant. The internal command target and pressure
+states are clamped to the 11 psi model bound. That extra headroom accommodates
+the fitted regulator gain and bias; real-arm and coursework controller
+commands use the hardware-safe 0--9 psi range.
 
 ## Sealed Segment-1 reservoir
 
@@ -184,3 +188,6 @@ trial-specific static fabric-sag offset.
 Faster motion, charges outside 1--3 psi, command shapes outside the three
 recorded waveforms, and active pressures outside the recorded range are
 extrapolations and require new robot validation.
+
+The recorded 10 psi peaks describe the historical calibration data. They do
+not supersede the current 9 psi hardware/coursework command limit.

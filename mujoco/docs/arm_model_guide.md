@@ -2,9 +2,9 @@
 
 This guide explains how the calibrated robot model is assembled and how a
 three-pressure command reaches the MuJoCo joints. See
-[`arm_parameters.md`](../arm_parameters.md) for fitted values and
-[`calibration.json`](../calibration.json) for the authoritative
-machine-readable calibration.
+[`arm_parameters.md`](arm_parameters.md) for fitted values and the packaged
+[`calibration.json`](../soft_robotic_arm/data/calibration.json) for the
+authoritative machine-readable calibration.
 
 ## Physical and pneumatic layout
 
@@ -27,13 +27,13 @@ The runtime keeps a complete 4 × 5 pressure matrix because all columns still
 contribute to mechanics. The public command path is three values:
 
 ```python
-from simulator import SoftArmSim
+from soft_robotic_arm import make_sim
 
-sim = SoftArmSim()                    # parallel, Segment 1 charged to 2 psi
+sim = make_sim()                       # parallel, Segment 1 charged to 2 psi
 obs = sim.step([p2, p3, p4])          # commands for Segments 2, 3, and 4
 ```
 
-Use `SoftArmSim(topology="coupled", reservoir_pressure_psi=3.0)` to reproduce
+Use `make_sim(topology="coupled", reservoir_pressure_psi=3.0)` to reproduce
 a coupled-plumbing condition.
 
 ## Five-level mechanical chain
@@ -148,6 +148,10 @@ The two recorded plumbing arrangements use different reservoir models:
 Both topologies expose the five local states as `reservoir_pressures`. This
 response is an empirical fit to the sensors; it is not a thermodynamic cavity
 or fluid-flow model.
+
+The calibrated model has an internal 11 psi state bound so fitted regulator
+gain and bias have headroom. Real-arm and coursework controller commands must
+still remain in the hardware-safe 0--9 psi range.
 
 ## Numerical model
 

@@ -1,38 +1,48 @@
-# soft-robotic-arm
+# Soft robotic arm coursework
 
-`ArmConfig` and `build_arm_xml` for the fabric pneumatic soft arm coursework.
+The installable package now lives at the repository's `mujoco` root so the
+coursework and calibrated research simulator use exactly the same model.
 
 ## Install
 
-```bash
-pip install soft-robotic-arm
-```
-
-Or directly from GitHub (before PyPI publication):
+For instructor development from the repository's `mujoco` directory:
 
 ```bash
-pip install "soft-robotic-arm @ git+https://github.com/Jeevan-HM/Soft-Robotic-Arm.git@simulation#subdirectory=mujoco/coursework"
+python -m pip install -e ".[coursework]"
 ```
+
+For students, first create and push an immutable release tag. After a tag such
+as `v0.2.0` exists, they can install the same model directly from GitHub:
+
+```bash
+python -m pip install "soft-robotic-arm[coursework] @ git+https://github.com/Jeevan-HM/Soft-Robotic-Arm.git@v0.2.0#subdirectory=mujoco"
+```
+
+That tag is a release example, not an assertion that it already exists. The
+package is not currently documented as published on PyPI.
 
 ## Usage
 
 ```python
-import mujoco
-from soft_robotic_arm import ArmConfig, build_arm_xml
+from soft_robotic_arm import make_sim
 
-cfg = ArmConfig()                                        # default calibrated parameters
-model = mujoco.MjModel.from_xml_string(build_arm_xml(cfg))
-print(f"{model.nq} DOF, {model.nbody} bodies")
-
-# Modify a parameter
-cfg.length = 0.25
-model2 = mujoco.MjModel.from_xml_string(build_arm_xml(cfg))
+sim = make_sim(reservoir_pressure_psi=2.0, control_hz=100)
+obs = sim.reset()
+obs = sim.step([2.0, 2.0, 2.0])  # S2, S3, and S4; S1 stays sealed
 ```
+
+Each controller output must be exactly three absolute pressure setpoints in
+`[S2, S3, S4]` order. The shared coursework evaluator clips them to the
+hardware-safe 0--9 psi range. The calibrated internal model uses an 11 psi
+state bound to accommodate regulator gain and bias; that is not permission to
+send 11 psi to the physical arm.
 
 ## What's in each section of the notebook
 
-| Library symbol | Notebook section |
-|----------------|-----------------|
-| `ArmConfig` | § 2 Embedded parameters |
-| `build_arm_xml` | § 3 MJCF model |
-| *(install cell)* | § 1 → replaced by `pip install soft-robotic-arm` |
+| Public library symbol | Notebook use |
+|-----------------------|--------------|
+| `make_sim`, `SoftArmSim` | Calibrated three-pressure plant |
+| `ArmConfig`, `build_arm_xml` | Model exploration |
+| `RobotCalibration` | Inspect or construct from the packaged calibration |
+| `CircularTrackingTask`, `make_reference` | Common circular reference |
+| `evaluate_controller`, `TrackingResult` | Common scoring, signals, and plots |

@@ -199,7 +199,7 @@
       "cycle_median_r_squared": 0.977,
       "cycle_median_rmse_psi": 0.005,
       "phase_locked_inter_pouch_correlation": 0.997,
-      "common_mode_variance_fraction": 0.9962
+      "common_mode_variance_fraction": 0.99620
     }
   }
 }

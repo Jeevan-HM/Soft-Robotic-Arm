@@ -32,6 +32,10 @@
 { "cmd": "set_many", "values": { "0": 2.5, "1": 3.0, "2": 2.5, "3": 3.0 } }
 ```
 
+These are low-level regulator-server messages, not the three-value controller
+API. Channel 0 is used only while charging Segment 1 during setup; isolate it
+before tracking. Runtime controller commands address channels 1--3 (S2--S4).
+
 **Response:**
 ```json
 { "status": "ok" }
@@ -105,19 +109,23 @@ where `af_tip` is the tip in the **mount's own frame** and `MOUNT_Z = 0.5 m`
 
 Simulator column convention:
 
-| Index | Direction |
-|-------|-----------|
-| 0 | East  |
-| 1 | North |
-| 2 | West  |
-| 3 | South |
+| Column | Segment | Direction | Runtime role |
+|-------:|--------:|-----------|--------------|
+| 0 | S1 | East  | Charged once, then sealed |
+| 1 | S2 | North | Active command 1 (`+Y`) |
+| 2 | S3 | West  | Active command 2 (`-X`) |
+| 3 | S4 | South | Active command 3 (`-Y`) |
 
 Default mapping (verify against actual wiring before first real run):
 ```python
 REG_FOR_COLUMN = {0: 0, 1: 1, 2: 2, 3: 3}
 ```
-Test: command 3 psi on column 0, confirm the real arm bends toward the same
-physical direction that the simulated arm bends toward +X.
+
+Do not use column 0 for a runtime direction test: it is Segment 1, which must
+be pre-inflated and isolated before control begins. Verify active wiring with
+one low-pressure command at a time: S2/column 1 should bend toward North
+(`+Y`), S3/column 2 toward West (`-X`), and S4/column 3 toward South (`-Y`).
+Confirm the regulator indices on the physical testbed before closing the loop.
 
 ---
 
@@ -126,9 +134,14 @@ physical direction that the simulated arm bends toward +X.
 | Parameter | Value |
 |-----------|-------|
 | Arm pressure limit (documented) | 10 psi |
-| Software `p_max` (hard-clipped) | **9 psi** |
+| Hardware/coursework command limit | **9 psi** |
+| Internal calibrated model bound (`ArmConfig.p_max`) | 11 psi |
 | Control rate | **100 Hz** |
 | Reservoir charge (Segment 1) | 1–3 psi, pre-inflated then sealed |
+
+The 11 psi model bound provides headroom for calibrated regulator gain and
+bias. It is not a physical-arm command limit; clamp real-arm and coursework
+controller setpoints to 0--9 psi.
 
 ---
 
@@ -172,9 +185,9 @@ mocap_time_rel_s
 ## Digital Twin Interface
 
 ```python
-from calibration import RobotCalibration
+from soft_robotic_arm import make_sim
 
-sim = RobotCalibration.load().make_sim(
+sim = make_sim(
     topology="parallel",          # or "coupled"
     reservoir_pressure_psi=2.0,
     control_hz=100.0,
