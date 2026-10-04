@@ -8,18 +8,16 @@ coursework and calibrated research simulator use the same arm mechanics.
 For instructor development from the repository's `mujoco` directory:
 
 ```bash
-python -m pip install -e ".[coursework]"
+python -m pip install -e .
 ```
 
-For students, first create and push an immutable release tag. After a tag such
-as `v0.4.0` exists, they can install the same model directly from GitHub:
+After version `0.4.0` is published to PyPI, students install everything with:
 
 ```bash
-python -m pip install "soft-robotic-arm[coursework] @ git+https://github.com/Jeevan-HM/Soft-Robotic-Arm.git@v0.4.0#subdirectory=mujoco"
+pip install soft-robotic-arm
 ```
 
-That tag is a release example, not an assertion that it already exists. The
-package is not currently documented as published on PyPI.
+The PyPI project must exist before this command is used in the notebook.
 
 ## Usage
 

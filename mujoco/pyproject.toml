@@ -16,14 +16,13 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
+    "matplotlib>=3.7",
     "mujoco>=3.5.0",
     "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
-coursework = [
-    "matplotlib>=3.7",
-]
+coursework = []
 test = [
     "build>=1.2",
     "pytest>=8",

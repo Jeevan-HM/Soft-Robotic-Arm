@@ -44,23 +44,20 @@ Research replay of the measured configuration remains available through
 
 ## Install for coursework
 
-From a checkout of this repository, install the package and notebook extras with:
+From a checkout of this repository, install the package in editable mode with:
 
 ```bash
-python -m pip install -e ".[coursework]"
+python -m pip install -e .
 ```
 
-Before distributing the assignment, push these package changes and create an
-immutable Git tag (for example, `v0.4.0`). Students can then install that exact
-version without cloning the repository:
+After publishing the release to PyPI, students install the complete simulator
+and plotting dependencies without cloning the repository:
 
 ```bash
-python -m pip install "soft-robotic-arm[coursework] @ git+https://github.com/Jeevan-HM/Soft-Robotic-Arm.git@v0.4.0#subdirectory=mujoco"
+pip install soft-robotic-arm
 ```
 
-The tag in this example still has to be created and pushed. The package has not
-been published to PyPI, so do not use a `soft-robotic-arm==...` command unless
-you publish it there separately.
+The PyPI project must be uploaded before this command is distributed to students.
 
 Coursework controller code may return four segment pressures or a `(4, 5)`
 matrix of individual pouch pressures, limited to the safe 0--9 psi range.
