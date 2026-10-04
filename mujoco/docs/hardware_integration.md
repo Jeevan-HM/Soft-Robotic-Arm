@@ -185,9 +185,9 @@ mocap_time_rel_s
 ## Digital Twin Interface
 
 ```python
-from soft_robotic_arm import make_sim
+from soft_robotic_arm import make_calibrated_sim
 
-sim = make_sim(
+sim = make_calibrated_sim(
     topology="parallel",          # or "coupled"
     reservoir_pressure_psi=2.0,
     control_hz=100.0,

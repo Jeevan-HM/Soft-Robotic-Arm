@@ -1,9 +1,8 @@
 # MuJoCo Digital Twin — Soft Robotic Arm
 
-Calibrated MuJoCo digital twin of the fabric pneumatic soft arm.
-The model is fitted to 36 physical-arm recordings and replicates
-measured actuator delay, pressure mapping, pneumatic lag, and
-sealed-reservoir response.
+MuJoCo teaching model and calibrated digital twin of the fabric pneumatic
+soft arm. The coursework interface keeps controller work simple: students
+command all four segments and read all twenty pouch pressures.
 
 ## Quick start
 
@@ -14,20 +13,20 @@ uv sync
 ```python
 from soft_robotic_arm import make_sim
 
-sim = make_sim(
-    topology="parallel",          # or "coupled"
-    reservoir_pressure_psi=2.0,
-    control_hz=100.0,
-)
+sim = make_sim(control_hz=100.0)
 
-obs = sim.step([2.0, 5.0, 2.0])  # S2, S3, S4 pressures [psi]
+obs = sim.step([2.0, 5.0, 2.0, 2.0])  # S1, S2, S3, S4 [psi]
 print(obs["tip_pos"])             # [x, y, z] in metres
-print(obs["time"])                # simulation time [s]
+print(obs["pouch_pressures"])     # shape (4 segments, 5 pouches)
 ```
 
-Segment 1 is a charged, sealed five-pouch reservoir — it is set once at
-construction time and not commanded at runtime. Segments 2–4 are the three
-active actuators; commands are always three absolute pressure setpoints in psi.
+The command order is `[S1 East, S2 North, S3 West, S4 South]`. The coursework
+notebook contains only usage instructions, a manual experiment, and an empty
+controller template; it does not provide a controller or fixed tracking task.
+
+Research replay of the measured configuration remains available through
+`make_calibrated_sim()`. That interface charges and seals S1 and commands only
+`[S2, S3, S4]`.
 
 ## Files
 
@@ -48,30 +47,23 @@ python -m pip install -e ".[coursework]"
 ```
 
 Before distributing the assignment, push these package changes and create an
-immutable Git tag (for example, `v0.2.0`). Students can then install that exact
+immutable Git tag (for example, `v0.3.0`). Students can then install that exact
 version without cloning the repository:
 
 ```bash
-python -m pip install "soft-robotic-arm[coursework] @ git+https://github.com/Jeevan-HM/Soft-Robotic-Arm.git@v0.2.0#subdirectory=mujoco"
+python -m pip install "soft-robotic-arm[coursework] @ git+https://github.com/Jeevan-HM/Soft-Robotic-Arm.git@v0.3.0#subdirectory=mujoco"
 ```
 
 The tag in this example still has to be created and pushed. The package has not
 been published to PyPI, so do not use a `soft-robotic-arm==...` command unless
 you publish it there separately.
 
-Controller code returns three absolute pressure commands in `[S2, S3, S4]`
-order. Segment 1 is a sealed reservoir and is never a controller output.
-
-The shared circular evaluation defaults to a 7 mm radius around the settled
-`[4.5, 4.5, 4.5]` psi operating point. That radius is chosen from the calibrated
-workspace: a 30 mm circle is not reachable with S1 sealed and S2--S4 limited
-to the hardware-safe 0--9 psi command range. The model's 11 psi bound leaves
-headroom for calibrated regulator gain and bias; it is not the coursework
-command limit.
+Coursework controller code returns four absolute pressure commands in
+`[S1, S2, S3, S4]` order, limited to the hardware-safe 0--9 psi range.
 
 The supported public imports are `ArmConfig`, `CircularTrackingTask`,
 `RobotCalibration`, `SoftArmSim`, `TrackingResult`, `build_arm_xml`,
-`evaluate_controller`, `make_reference`, and `make_sim`.
+`evaluate_controller`, `make_calibrated_sim`, `make_reference`, and `make_sim`.
 
 ## Docs
 

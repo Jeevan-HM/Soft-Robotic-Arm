@@ -4,8 +4,8 @@ import pytest
 from soft_robotic_arm import (
     CircularTrackingTask,
     evaluate_controller,
+    make_calibrated_sim,
     make_reference,
-    make_sim,
 )
 from soft_robotic_arm.evaluation import _phase_lag_seconds
 
@@ -54,7 +54,7 @@ def test_evaluator_uses_monotonic_plant_time_and_tracking_relative_arrays():
 
 
 def test_evaluator_validates_shape_and_clips_to_coursework_limit():
-    sim = make_sim()
+    sim = make_calibrated_sim()
     with pytest.raises(ValueError, match=r"shape \(3,\)"):
         evaluate_controller(
             RecordingController(command=(1.0, 2.0)),
@@ -65,7 +65,7 @@ def test_evaluator_validates_shape_and_clips_to_coursework_limit():
     result = evaluate_controller(
         RecordingController(command=(-1.0, 20.0, 4.0)),
         task=short_task(command_limit_psi=9.0),
-        sim=make_sim(),
+        sim=make_calibrated_sim(),
     )
     np.testing.assert_allclose(result.commands, [[0.0, 9.0, 4.0]] * 3)
 

@@ -75,7 +75,8 @@ class SoftArmSim:
                  reservoir_relaxation_delay_s: float | None = None,
                  reservoir_equalization: float | None = None,
                  reservoir_response_tau_s: float | None = None,
-                 reservoir_force_feedback: bool | None = None):
+                 reservoir_force_feedback: bool | None = None,
+                 strict_segment_commands: bool = False):
         topology = str(topology).lower()
         if topology not in ("parallel", "coupled"):
             raise ValueError("topology must be 'parallel' or 'coupled'")
@@ -161,6 +162,11 @@ class SoftArmSim:
         self.cfg = cfg
         self.topology = topology
         self.uses_robot_calibration = canonical_runtime
+        self.strict_segment_commands = bool(strict_segment_commands)
+        if self.strict_segment_commands and reservoir_column is not None:
+            raise ValueError(
+                "strict four-segment commands require reservoir_column=None"
+            )
         self.control_dt = 1.0 / control_hz
         self.n_sub_steps = max(1, round(self.control_dt / self.cfg.timestep))
         self.sensor_noise = float(sensor_noise_psi)
@@ -413,17 +419,24 @@ class SoftArmSim:
     def step(self, p_cmd_psi) -> dict:
         """Advance one control tick (100 Hz).
 
-        The calibrated interface requires a three-vector for Segments 2--4.
-        Full arrays are accepted only by the low-level calibration path built
-        from an explicit ``ArmConfig``. Calibrated commands are absolute gauge
-        pressure setpoints, so Segment-1 pre-inflation is not added to them.
+        The coursework interface requires ``[S1, S2, S3, S4]``. The measured
+        calibration interface requires ``[S2, S3, S4]`` because S1 is sealed.
+        Full arrays remain available only to the low-level mechanics path.
         """
         cfg = self.cfg
         p_cmd = np.asarray(p_cmd_psi, dtype=float)
         if not np.all(np.isfinite(p_cmd)):
             raise ValueError("pressure command must contain only finite values")
 
-        if self.uses_robot_calibration:
+        if self.strict_segment_commands:
+            expected = (cfg.n_segments,)
+            if p_cmd.shape != expected:
+                raise ValueError(
+                    "coursework pressure command must have shape (4,) for "
+                    f"Segments 1, 2, 3, and 4; got {p_cmd.shape}"
+                )
+            p_cmd = np.tile(p_cmd[:, None], (1, cfg.n_pouches))
+        elif self.uses_robot_calibration:
             expected = (cfg.n_segments - 1,)
             if p_cmd.shape != expected:
                 raise ValueError(
@@ -521,6 +534,7 @@ class SoftArmSim:
             "p_actual": self.p_actual.copy(),
             "q": self.data.qpos.copy(),
         }
+        obs["segment_pressures"] = obs["pouch_pressures"].mean(axis=1).copy()
         if self.reservoir_column is not None:
             obs["reservoir_pressures"] = (
                 obs["pouch_pressures"][self.reservoir_column].copy()

@@ -27,14 +27,15 @@ The runtime keeps a complete 4 × 5 pressure matrix because all columns still
 contribute to mechanics. The public command path is three values:
 
 ```python
-from soft_robotic_arm import make_sim
+from soft_robotic_arm import make_calibrated_sim
 
-sim = make_sim()                       # parallel, Segment 1 charged to 2 psi
+sim = make_calibrated_sim()            # parallel, Segment 1 charged to 2 psi
 obs = sim.step([p2, p3, p4])          # commands for Segments 2, 3, and 4
 ```
 
-Use `make_sim(topology="coupled", reservoir_pressure_psi=3.0)` to reproduce
-a coupled-plumbing condition.
+Use `make_calibrated_sim(topology="coupled", reservoir_pressure_psi=3.0)` to
+reproduce a coupled-plumbing condition. The classroom-facing `make_sim()`
+instead exposes all four segments as direct commands.
 
 ## Five-level mechanical chain
 

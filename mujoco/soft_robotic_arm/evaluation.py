@@ -273,9 +273,9 @@ def evaluate_controller(
     """
     task = task or CircularTrackingTask()
     if sim is None:
-        from . import make_sim
+        from . import make_calibrated_sim
 
-        sim = make_sim(control_hz=task.control_hz, seed=0)
+        sim = make_calibrated_sim(control_hz=task.control_hz, seed=0)
     expected_dt = 1.0 / task.control_hz
     if not np.isclose(sim.control_dt, expected_dt, rtol=0.0, atol=1e-12):
         raise ValueError("sim control rate must equal task.control_hz")

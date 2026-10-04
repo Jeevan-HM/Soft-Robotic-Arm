@@ -32,11 +32,11 @@ Segment 3 / col 2 W-+-E Segment 1 / col 0 (sealed)
 | 3 | 2 | 180° | Commanded actuator `p3` |
 | 4 | 3 | 270° | Commanded actuator `p4` |
 
-`make_sim()` selects the calibrated parallel topology, charges Segment 1 to
-2 psi, and accepts `step([p2, p3, p4])`. To reproduce a coupled-plumbing run,
-call `make_sim(topology="coupled", reservoir_pressure_psi=x)`. Both are public
-imports from `soft_robotic_arm`; `SoftArmSim` remains available when direct
-access to the simulator type is useful.
+`make_calibrated_sim()` selects the calibrated parallel topology, charges
+Segment 1 to 2 psi, and accepts `step([p2, p3, p4])`. To reproduce a
+coupled-plumbing run, call
+`make_calibrated_sim(topology="coupled", reservoir_pressure_psi=x)`. The
+classroom-facing `make_sim()` commands all four segments directly.
 
 ## Geometry and mass
 
