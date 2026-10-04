@@ -30,7 +30,7 @@ print(obs["pouch_pressures"])     # shape (4 segments, 5 pouches)
 
 Rows are `[S1 East, S2 North, S3 West, S4 South]`; columns are pouches P1--P5.
 The coursework notebook explains both segment and pouch commands and includes
-a PD-control example for circular tip tracking.
+a PD-control example for smooth random tip-trajectory tracking.
 
 Research replay of the measured configuration remains available through
 `make_calibrated_sim()`. That interface charges and seals S1 and commands only
