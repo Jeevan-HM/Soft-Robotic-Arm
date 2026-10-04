@@ -10,6 +10,9 @@ independently and read all twenty pouch pressures.
 pip install soft-robotic-arm
 ```
 
+This installs MuJoCo, NumPy, Matplotlib, and the ImageIO video encoder used by
+the coursework notebook to render controller runs as MP4 files.
+
 ```python
 import numpy as np
 

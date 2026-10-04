@@ -16,6 +16,8 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 dependencies = [
+    "imageio>=2.31",
+    "imageio-ffmpeg>=0.4.9",
     "matplotlib>=3.7",
     "mujoco>=3.5.0",
     "numpy>=1.24",
